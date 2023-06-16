@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  go-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VARIANT: 1.20-bullseye
+        NODE_VERSION: "lts/*"
+    image: golang-dc
+    volumes:
+      - ..:/workspace:cached
+    command: sleep 999d
