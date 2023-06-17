@@ -22,7 +22,3 @@ go.work
 
 # Other
 db
-
-# Built code
-001-logfilter01/logfilter01
-002-web01/web01
