@@ -49,10 +49,48 @@ Query
 Successful connection
 ```
 
+**COMMIT: CHORE: setup and test pg connection**
+
+## Networking change
+
+I was using the host machine's IP address as `host`. I didn't like that, so I ran `docker container inspect` with a partial container id (easier than typing the name). That got me output that included:
+
+```json
+    "Networks": {
+        "go-jst_devcontainer_default": {
+            "IPAMConfig": null,
+            "Links": null,
+            "Aliases": [
+                "1a91b0cacdc6",
+                "db"
+            ],
+            "NetworkID": "bd1610120990a5c695434c87c2863b68fd77e31eb8a4f6ce498fdcd30895430e",
+            "EndpointID": "9913853b9c065abe22f9d1fc2a175fc7d578af1366a3313017fcba269bfb9997",
+            "Gateway": "172.18.0.1",
+            "IPAddress": "172.18.0.2",
+            "IPPrefixLen": 16,
+            "IPv6Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "MacAddress": "02:42:ac:12:00:02",
+            "DriverOpts": null
+        }
+    }
+```
+
+I confirmed `ping 172.18.0.2` (the container's IP address) and `ping db` both worked and were both pinging the same IP.
+
+I changed the `host` and `port` based on that test. I changed the `port` because this change routes inside the Docker network, which means we get the inside port (5432), not the outside port (9432) from `docker-compose.postgres.yml`.
+
+```yaml
+    ports:
+      - 9432:5432
+```
+
+**COMMIT: FIX: use the container network instead of the host network to connect to Postgres**
+
 ## Things to investigate
 
 * Is the URL approach safe? (Does it protect the username and password under the covers?)
 * Does `db.Query()` act like a cursor or actually use a cursor?
 * Is there a way to use `Scan()` with an incomplete argument list?
-
-**COMMIT: CHORE: setup and test pg connection**

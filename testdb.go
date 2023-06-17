@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	host     = "192.168.0.101"
-	port     = 9432 // may be 5432
+	host     = "db"
+	port     = 5432 // outside the container network, 9432
 	userName = "postgres"
 	password = "postgres"
 	dbName   = "gojst"
