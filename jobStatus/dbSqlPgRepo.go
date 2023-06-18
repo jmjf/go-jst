@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type dbSqlRepo struct {
+type dbSqlPgRepo struct {
 	db                        *sql.DB
 	sqlInsert                 string
 	sqlSelect                 string
@@ -15,8 +15,8 @@ type dbSqlRepo struct {
 
 // NewDbSqlRepo creates a new dbSqlRepo object using the passed database handle.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewDbSqlRepo(db *sql.DB) JobStatusRepo {
-	return &dbSqlRepo{
+func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
+	return &dbSqlPgRepo{
 		db: db,
 
 		// The order of columns in the following statements is significant.
@@ -26,20 +26,21 @@ func NewDbSqlRepo(db *sql.DB) JobStatusRepo {
 
 		sqlInsert: `
 			INSERT INTO
-			JobStatus (ApplicationId, JobId, JobStatusCode, BusinessDate, RunId, HostId)
-			VALUES($1, $2, $3, $4, $5, $6)
+			"JobStatus" ("ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId")
+			VALUES($1, $2, $3, $4, $5, $6, $7)
 		`,
-		sqlSelect:                 "SELECT ApplicationId, JobId, JobStatusCode, BusinessDate, RunId, HostId FROM JobStatus",
-		sqlWhereJobId:             "WHERE JobId = $1",
-		sqlWhereJobIdBusinessDate: "WHERE JobId = $1 AND BusinessDate = $2",
+		sqlSelect:                 `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
+		sqlWhereJobId:             `WHERE "JobId" = $1`,
+		sqlWhereJobIdBusinessDate: `WHERE "JobId" = $1 AND "BusinessDate" = $2`,
 	}
 }
 
 // add inserts a JobStatus into the database.
-func (repo dbSqlRepo) add(jobStatus JobStatus) error {
+func (repo dbSqlPgRepo) Add(jobStatus JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
-	// jobStatus.ApplicationId, jobStatus.JobId, jobStatus.JobStatusCode,
+	// jobStatus.ApplicationId, jobStatus.JobId,
+	// jobStatus.JobStatusCode, jobStatus.JobStatusTimestamp,
 	// jobStatus.BusinessDate, jobStatus.RunId, jobStatus.HostId)
 	if err != nil {
 		return err
@@ -49,7 +50,7 @@ func (repo dbSqlRepo) add(jobStatus JobStatus) error {
 }
 
 // GetByJobId retrieves JobStatus structs for a specific job id.
-func (repo dbSqlRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
+func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
 		return []JobStatus{}, err
@@ -60,7 +61,7 @@ func (repo dbSqlRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 }
 
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
-func (repo dbSqlRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt time.Time) ([]JobStatus, error) {
+func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt time.Time) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, busDt)
 	if err != nil {
 		return []JobStatus{}, err
@@ -94,23 +95,25 @@ func dbToDomain(rows *sql.Rows) (JobStatus, error) {
 		appId string
 		jobId JobIdType
 		jobSt JobStatusCodeType
+		jobTs time.Time
 		busDt time.Time
 		runId string
 		hstId string
 	)
 
-	err := rows.Scan(&appId, &jobId, &jobSt, &busDt, &runId, &hstId)
+	err := rows.Scan(&appId, &jobId, &jobSt, &jobTs, &busDt, &runId, &hstId)
 	if err != nil {
 		return JobStatus{}, err
 	}
 
 	return JobStatus{
-		ApplicationId: appId,
-		JobId:         jobId,
-		JobStatusCode: jobSt,
-		BusinessDate:  busDt,
-		RunId:         runId,
-		HostId:        hstId,
+		ApplicationId:      appId,
+		JobId:              jobId,
+		JobStatusCode:      jobSt,
+		JobStatusTimestamp: jobTs,
+		BusinessDate:       busDt,
+		RunId:              runId,
+		HostId:             hstId,
 	}, nil
 }
 
@@ -126,6 +129,7 @@ func domainToDb(jobStatus JobStatus) []any {
 		jobStatus.ApplicationId,
 		jobStatus.JobId,
 		jobStatus.JobStatusCode,
+		jobStatus.JobStatusTimestamp,
 		jobStatus.BusinessDate,
 		jobStatus.RunId,
 		jobStatus.HostId,

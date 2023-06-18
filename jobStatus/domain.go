@@ -17,26 +17,28 @@ const (
 )
 
 type JobStatus struct {
-	ApplicationId string
-	JobId         JobIdType
-	JobStatusCode JobStatusCodeType
-	BusinessDate  time.Time
-	RunId         string
-	HostId        string
+	ApplicationId      string
+	JobId              JobIdType
+	JobStatusCode      JobStatusCodeType
+	JobStatusTimestamp time.Time
+	BusinessDate       time.Time
+	RunId              string
+	HostId             string
 }
 
-// Need to use uppercase field names so reflect can see them to use json tags
+// Need to use uppercase field names so reflect can see them to use tags
 type JobStatusDto struct {
 	AppId string            `json:"applicationId"`
 	JobId JobIdType         `json:"jobId"`
 	JobSt JobStatusCodeType `json:"jobStatusCode"`
+	JobTs time.Time         `json:"jobStatusTimestamp"`
 	BusDt time.Time         `json:"businessDate"`
 	RunId string            `json:"runId"`
 	HstId string            `json:"hostId"`
 }
 
 type JobStatusRepo interface {
-	add(jobStatus JobStatus) error
+	Add(jobStatus JobStatus) error
 	GetByJobId(id JobIdType) ([]JobStatus, error)
 	GetByJobIdBusinessDate(id JobIdType, businessDate time.Time) ([]JobStatus, error)
 }

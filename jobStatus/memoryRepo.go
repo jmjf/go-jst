@@ -15,7 +15,7 @@ func NewMemoryRepo(jobStatuses []JobStatus) JobStatusRepo {
 }
 
 // add inserts a JobStatus into the database.
-func (repo *memoryRepo) add(jobStatus JobStatus) error {
+func (repo *memoryRepo) Add(jobStatus JobStatus) error {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
