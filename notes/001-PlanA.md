@@ -79,7 +79,7 @@ The system uses SLO definitions and job status data to build an SLO performance 
 
 ### Phase 2 -- calculate SLO performance
 
-* The job status API will make an HTTP POST call to an SLA performance calculator service.
+* The job status API will make an asynchronous (goroutine) HTTP POST call to an SLA performance calculator service.
 * The SLO performance calculator will update the SLO performance table.
 * SLO performance reporting will happen by querying the table (or by a performance view that derives columns based on the SLO Performance table).
 
