@@ -1,4 +1,4 @@
-# Getting organized
+# Phase 1 -- Job Status
 
 ## Workspace
 
@@ -137,11 +137,119 @@ After some tweaking, both `testRepo` tests `dbSqlPgRepo` and `memoryRepo` with n
 
 **COMMIT:** TEST: run tests for both repos and confirm implementation agnosticism
 
+## Use cases
+
+Job status is pretty simple. We can add them and read them. There's no update and any deletes will happen as part of a scheduled purge process.
+
+In `domain.go` we have a data transfer object (DTO), `JobStatusDto`. It carries data into the use cases from HTTP or other sources.
+
+## Add use case
+
+The `Add` use case stores a new job status row in the database so the data is available for job status history and SLO performance calculation (if reporting from the database). At a basic level, it needs to:
+
+* Ensure times are good (need for JobTs/BusDt validation to work)
+* Check the data in the DTO to be sure it's usable.
+* Create a `JobStatus`
+* Ensure the row to be inserted isn't a duplicate.
+* Insert the row in the database.
+
+### Ensure times are good
+
+`JobStatusTimestamp` and `BusinessDate` may arrive with too much precision. Also, life is easier if all times in the database are normalized to UTC. Reports and a future UI can convert to/from a specified time zone if needed.
+
+* `JobStatusTimestamp`
+  * Set to `JobStatusTimestamp.Truncate(time.Second).UTC()` -- truncates to 1 second accuracy and converts to UTC
+* `BusinessDate`
+  * `yr, mo, dy := BusinessDate.Date()` then set to `time.Date(yr, mo, dy, 0, 0, 0, 0, time.UTC)`
+  * `BusinessDate` is an absolute date not affected by time zone shifts, so we can normalize to UTC this way.
+
+Written as `normalizeTimes`, a method on the DTO in `dataObjects.go`. Because these rules are business data rules, I'm treating the DTO definition as a domain object. I may change my mind on how to handle this later, but it makes sense to me for now.
+
+### Check data in DTO
+
+What checks do we need to validate the DTO?
+
+* `ApplicationId`
+  * Not empty
+  * Not too long
+  * Is a known id (skip for now because no data)
+* `JobId`
+  * Not empty
+  * Not too long
+  * Is a known id (skip for now because no data)
+  * Assumes we'll have data for all jobs we care about and won't store data for jobs we don't care about
+* `JobStatusCode`
+  * Is found in the array of valid statuses
+  *Added `ValidJobStatusCodes`; decide if export is needed later.
+* `JobStatusTimestamp`
+  * Not empty
+  * Not in the future
+* `BusinessDate`
+  * Not empty
+  * Not in the future
+  * Is <= the date part of `JobStatusTimestamp` (need to be sure this doesn't cause problems with Asia)
+* `RunId` is not too long
+* `HostId` is not too long
+
+FUTURE: If data is invalid, return a "bad data error" (custom) to the caller for logging and return to client. (HTTP 400)
+
+Written as `isUsable`, a method on the DTO in `dataObjects.go`. Same reasoning as 'normalizeTimes`.
+
+### Create JobStatus
+
+The decisions above lead to some changes.
+
+"Can I get a good `JobStatus`?" is a question for the domain, not the use case. The use case attempts to create a `JobStatus` and either gets a `JobStatus` it can use or gets an error.
+
+So, the use case is now:
+
+* Try to create a `JobStatus` with the DTO.
+  * On error, return error
+* Try to add the `JobStatus` to the database.
+  * On error, return error
+  * ASSUMPTION: attempting to add a duplicate row will return an error, so no need for a separate duplicate check
+* Return the `JobStatus`.
+
+Because I've moved data checks onto the DTO, I could call the DTO functions in the use case and keep the validation there. That might make sense, but I think it makes more sense from a business reasoning perspective to say, "When I try to create a `JobStatus`, I ensure the data I'm trying to use is valid." The alternative is scattering the validation in all the places we might create a `JobStatus`. For example, the repo needs to call `newJobStatus` with the raw data passed as a DTO to get a `JobStatus` to return rather than just trusting the data in the database.
+
+### Definition of a duplicate row
+
+We don't want to insert a row in the database where `ApplicationId`, `JobId`, `JobStatusCode`, `BusinessDate` and `JobStatusTimestamp` are the same because that can cause problems when calculating SLO performance. I could do this with a primary key constraint on the table in the database. That's probably less overhead that querying to check for a duplicate.
+
+FUTURE: If the row already exists, return a "duplicate row error" (custom) to the caller for logging and return to client. (HTTP 409)
+
+### Add JobStatus
+
+Call the repo's add method.
+
+FUTURE: Need a "database error" (custom) that the repo can return so the caller can log correctly. (HTTP 500)
+
+**COMMIT:** FEAT: add the Add use case and reorganize code based on where it led thinking
+
+## Testing
+
+Investigate how to write tests and options.
+
+I can test the domain and leave the use cases untested, but that seems questionable if the UCs end up carrying business process logic.
+
+How might I mock or intercept calls to the database. I'd really like the repo code to be exercised too so I can confirm it returns errors correctly. An ORM could standardize errors to some extent, but I'm not sure I'm ready to go that route yet.
+
 ## Next
 
 * Define and write use cases with unit tests.
+  * How do I deal with the repo and intercepting calls or mocking?
+* Change repos to use `newJobStatus` when getting data.
 * Write an HTTP server for job status ingestion.
+  * Write controllers and figure out controller structure
   * Add logging middleware to log requests, responses, and response times (shared library module).
+* Investigate structured logging options and how to carry logging info for errors. Build custom errors and use them.
+  * BadDataError
+  * DatabaseError
+  * DuplicateRowError (is a DatabaseError)
 * Consider writing a `gormRepo` that uses `gorm`.
   * It's an ORM that seems to have key features I'd want, but needs more investigation.
 * Think about how to maintain and apply DDL
+
+## Notes
+
+Custom errors define a `struct` and attach an `Error()` function to it. They can be returned as an `error`, but then they need to be type converted to get to the data. Maybe write a generic custom error that includes extra data I want and a type, then I don't have to try for several possible type conversions. Also check `errors.Is()` and `errors.As()` and the idea of wrapping and unwrapping errors.
