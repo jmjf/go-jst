@@ -38,7 +38,7 @@ type JobStatusDto struct {
 }
 
 type JobStatusRepo interface {
-	Add(jobStatus JobStatus) error
+	add(jobStatus JobStatus) error
 	GetByJobId(id JobIdType) ([]JobStatus, error)
 	GetByJobIdBusinessDate(id JobIdType, businessDate time.Time) ([]JobStatus, error)
 }

@@ -36,7 +36,7 @@ func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
 }
 
 // add inserts a JobStatus into the database.
-func (repo dbSqlPgRepo) Add(jobStatus JobStatus) error {
+func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
 	// jobStatus.ApplicationId, jobStatus.JobId,
