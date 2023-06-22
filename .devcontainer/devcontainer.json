@@ -23,7 +23,7 @@
          },
          "extensions": [
             "streetsidesoftware.code-spell-checker",
-            "eamodio.gitlens",
+            "maattdd.gitless",
             "DavidAnson.vscode-markdownlint",
             "golang.go"
          ]
