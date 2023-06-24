@@ -42,7 +42,7 @@ func (dto JobStatusDto) isUsable() []error {
 		errs = append(errs, fmt.Errorf("invalid JobTimestamp |%s|", dto.JobTs.Format(time.RFC3339)))
 	}
 
-	// now < BusDt -> BusDt is in the future;
+	// now < BusDt -> BusDt is in the future
 	if now.Compare(dto.BusDt) == -1 {
 		errs = append(errs, fmt.Errorf("invalid BusinessDate |%s|", dto.BusDt.Format(time.RFC3339)))
 	}
@@ -58,7 +58,7 @@ func (dto JobStatusDto) isUsable() []error {
 	}
 
 	if len(dto.HstId) > 150 {
-		errs = append(errs, fmt.Errorf("HostId is over `50 characters |%s|", dto.HstId))
+		errs = append(errs, fmt.Errorf("HostId is over 150 characters |%s|", dto.HstId))
 	}
 
 	return errs
@@ -68,7 +68,7 @@ func (dto JobStatusDto) isUsable() []error {
 //
 // Returns a JobStatusDto with JobTs truncated to seconds and converted to UTC
 // and BusDt truncated to day as UTC (not converted to UTC).
-func (dto JobStatusDto) normalizeTimes() {
+func (dto *JobStatusDto) normalizeTimes() {
 	dto.JobTs = dto.JobTs.Truncate(time.Second).UTC()
 
 	yr, mo, dy := dto.BusDt.Date()
@@ -77,7 +77,7 @@ func (dto JobStatusDto) normalizeTimes() {
 
 // jobStatusCode returns the job status code if dto.JobSt in the list of valid job status codes.
 // If code is not a valid job status code, it returns JobStatus_INVALID.
-func (dto JobStatusDto) jobStatusCode() JobStatusCodeType {
+func (dto *JobStatusDto) jobStatusCode() JobStatusCodeType {
 	for _, jsc := range validJobStatusCodes {
 		if string(jsc) == strings.ToUpper(dto.JobSt) {
 			return jsc
@@ -106,7 +106,7 @@ func newJobStatus(dto JobStatusDto) (JobStatus, error) {
 	errs := dto.isUsable()
 	if len(errs) > 0 {
 		// really want a custom error type and bundle all the errors in it
-		return JobStatus{}, fmt.Errorf("%v", errs)
+		return JobStatus{}, fmt.Errorf("DTO is not usable | %v", errs)
 	}
 
 	// dto.isUsable() will return an error if the job status code isn't valid

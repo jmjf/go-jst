@@ -234,11 +234,52 @@ I can test the domain and leave the use cases untested, but that seems questiona
 
 How might I mock or intercept calls to the database. I'd really like the repo code to be exercised too so I can confirm it returns errors correctly. An ORM could standardize errors to some extent, but I'm not sure I'm ready to go that route yet.
 
+LATER
+
+Based on learning about testing and looking at how to test to include the repo, I'll probably use [`testify`](https://github.com/stretchr/testify) in the future and maybe [`mockery`](https://vektra.github.io/mockery/installation/). For now, I'll keep it basic and use [`go-sqlmock](https://github.com/DATA-DOG/go-sqlmock) to create the repo in a test.
+
+So, let's write a test of the `Add` use case and see how this works. What can go wrong? What can go right?
+
+* The `dto` could fail validation and return an error. (if ok continue)
+* The repo `add` method could fail and return an error. (if ok continue)
+* The use case returns a `JobStatus` and no error.
+
+I'll create `useCases_test.go`. We'll put the code in `package jobStatus_test` so it's a black box test. I'll write a `beforeEach()` function because setup will be similar. If I need to change data in the DTO, I can do it in the test function.
+
+I'm getting an unexpected error value:
+
+```
+    useCases_test.go:54: err ExecQuery '
+                                INSERT INTO "JobStatus" ("ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId")
+                                VALUES($1, $2, $3, $4, $5, $6, $7)
+                        ', arguments do not match: argument 0 expected [int64 - 2] does not match actual [string - App1]
+```
+
+I know running against pg directly inserts rows, so the insert should be legit. I must have the `ExpectExec()` wrong.
+
+I need to step away for a while and come back with fresh eyes and maybe some more reading about how sqlmock works. Or find an alternative.
+
+Let's ask a few questions.
+
+* Where does the error appear in the source? -- sqlmock_go18.go, line 327 (`func exec()`)
+* The function loops over expectations
+  * I need to look at `attemptArgMatch` and `argsMatches`
+  * It's caused by `argsMatches` in `expectations_go18.go` line 68 -- so, it's looking for an int64 value 2 -- why
+  * Found it -- I was setting up the mock in `beforeEach` -- nothing I changed in the test's mock affected the error because the earlier mock failed first
+
+Now I'm getting a non-error, but that may be because I'm returning a result that's an error instead of an error. Using `WillReturnError()` instead of `WillReturnResult()` gets an error and the test passes. And I can add `WithArgs` and list the DTO members. But `WithArgs` doesn't seem to fail if I pass the wrong order, so it must be checking that the args are there, regardless of order. So, for now I'll ignore `WithArgs`.
+
+To test the DTO, I want to use a table driven test, but I need to change different fields of the DTO for each test. I can use `reflect` to change values in the DTO with a string name reference. I'll set up tests for each failure (too short, too long, etc.).
+
+The errors include the invalid value and ifBecause I'm testing for errors, I wonder if I can set up a generic error and customize the message. For now, I'm testing that the error message contains a value that I expect.
+
+I have test for all DTO string values. Next I need tests for DTO time values (JobTs < now, BusDt <= today) and the success case.
+
+**COMMIT:** TEST: add unit tests for jobStatusUC.Add()
+
 ## Next
 
-* Define and write use cases with unit tests.
-  * How do I deal with the repo and intercepting calls or mocking?
-* Change repos to use `newJobStatus` when getting data.
+* Change repos to use `newJobStatus` in `dbToDomain()`.
 * Write an HTTP server for job status ingestion.
   * Write controllers and figure out controller structure
   * Add logging middleware to log requests, responses, and response times (shared library module).

@@ -25,8 +25,7 @@ func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
 		// ALWAYS use the same order in all statements!
 
 		sqlInsert: `
-			INSERT INTO
-			"JobStatus" ("ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId")
+			INSERT INTO "JobStatus" ("ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId")
 			VALUES($1, $2, $3, $4, $5, $6, $7)
 		`,
 		sqlSelect:                 `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
