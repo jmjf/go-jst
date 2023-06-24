@@ -11,11 +11,13 @@ While working, I often note things to do that must be deferred until later to st
 * Change repos to use `newJobStatus` in `dbToDomain()`.
 * Write an HTTP server for job status ingestion.
   * Write controllers and figure out controller structure
-  * Add logging middleware to log requests, responses, and response times (shared library module).
-* Investigate structured logging options and how to carry logging info for errors. Build custom errors and use them.
-  * BadDataError
-  * DatabaseError
-  * DuplicateRowError (is a DatabaseError)
+* Add Logging
+  * Build middleware to log requests, responses, and response times (shared library module).
+  * Decide how to assign ids to requests.
+  * Investigate structured logging options and how to carry logging info for errors. Build custom errors and use them.
+    * BadDataError
+    * DatabaseError
+    * DuplicateRowError (is a DatabaseError)
 * Consider writing a `gormRepo` that uses `gorm`.
   * It's an ORM that seems to have key features I'd want, but needs more investigation.
 * Think about how to maintain and apply DDL
@@ -47,3 +49,13 @@ Custom errors define a `struct` and attach an `Error()` function to it. They can
 Because I'm using a database library that requires met to write SQL statements and pass arguments manually, SQL argument order is critical to ensure good data.
 
 I want my test database mocks to check argument order so I'm sure the data that will be sent to the database is correct (don't cross column values).
+
+## General
+
+### Decide where server startup(s) go
+
+`go-slo` will end up running several different processes -- an HTTP API, consumers for the message bus, etc.
+
+I want to be able to build different executables and deploy them as independently as possible so I can reduce deployment time and risk and have finer grained control of scaling.
+
+This topic needs some research.
