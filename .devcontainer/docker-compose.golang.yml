@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VARIANT: 1.20-bullseye
+        VARIANT: 1.21rc2-bullseye
         NODE_VERSION: "lts/*"
     image: golang-dc
     volumes:
