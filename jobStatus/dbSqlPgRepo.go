@@ -1,6 +1,7 @@
 package jobStatus
 
 import (
+	"common"
 	"database/sql"
 	"time"
 )
@@ -60,8 +61,8 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 }
 
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
-func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt time.Time) ([]JobStatus, error) {
-	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, busDt)
+func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
+	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
 		return []JobStatus{}, err
 	}
@@ -95,7 +96,7 @@ func dbToDomain(rows *sql.Rows) (JobStatus, error) {
 		jobId JobIdType
 		jobSt JobStatusCodeType
 		jobTs time.Time
-		busDt time.Time
+		busDt time.Time // database/sql will Scan to time.Time, not common.Date
 		runId string
 		hstId string
 	)
@@ -105,15 +106,15 @@ func dbToDomain(rows *sql.Rows) (JobStatus, error) {
 		return JobStatus{}, err
 	}
 
-	return JobStatus{
-		ApplicationId:      appId,
-		JobId:              jobId,
-		JobStatusCode:      jobSt,
-		JobStatusTimestamp: jobTs,
-		BusinessDate:       busDt,
-		RunId:              runId,
-		HostId:             hstId,
-	}, nil
+	return newJobStatus(JobStatusDto{
+		AppId: appId,
+		JobId: string(jobId),
+		JobSt: string(jobSt),
+		JobTs: jobTs,
+		BusDt: common.NewDateFromTime(busDt),
+		RunId: runId,
+		HstId: hstId,
+	})
 }
 
 // domainToDb converts a JobStatus into an array of values to insert.
@@ -129,7 +130,7 @@ func domainToDb(jobStatus JobStatus) []any {
 		jobStatus.JobId,
 		jobStatus.JobStatusCode,
 		jobStatus.JobStatusTimestamp,
-		jobStatus.BusinessDate,
+		time.Time(jobStatus.BusinessDate),
 		jobStatus.RunId,
 		jobStatus.HostId,
 	}

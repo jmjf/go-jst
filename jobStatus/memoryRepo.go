@@ -1,8 +1,8 @@
 package jobStatus
 
 import (
+	"common"
 	"sync"
-	"time"
 )
 
 type memoryRepo struct {
@@ -38,7 +38,7 @@ func (repo *memoryRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 }
 
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
-func (repo *memoryRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt time.Time) ([]JobStatus, error) {
+func (repo *memoryRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 
 	repo.mut.Lock()
 	defer repo.mut.Unlock()

@@ -1,6 +1,6 @@
 package jobStatus
 
-import "time"
+import "common"
 
 // Need to figure out what to call this.
 // Repo interfaces are shared, so not part of a single repo.
@@ -9,7 +9,7 @@ type JobStatusRepo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
 	add(jobStatus JobStatus) error
 	GetByJobId(id JobIdType) ([]JobStatus, error)
-	GetByJobIdBusinessDate(id JobIdType, businessDate time.Time) ([]JobStatus, error)
+	GetByJobIdBusinessDate(id JobIdType, businessDate common.Date) ([]JobStatus, error)
 }
 
 // I'm doing status these types the easy way for now.

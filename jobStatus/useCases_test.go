@@ -1,6 +1,7 @@
 package jobStatus_test
 
 import (
+	"common"
 	"database/sql"
 	"fmt"
 	"jobStatus"
@@ -21,12 +22,14 @@ func beforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, 
 	jsRepo := jobStatus.NewDbSqlPgRepo(db)
 	uc := jobStatus.NewJobStatusUC(jsRepo)
 
+	busDt, err := common.NewDate("2023-06-20")
+
 	dto := jobStatus.JobStatusDto{
 		AppId: "App1",
 		JobId: "Job2",
 		JobSt: string(jobStatus.JobStatus_START),
 		JobTs: time.Now(),
-		BusDt: time.Now().Add(time.Duration(-24) * time.Hour),
+		BusDt: busDt,
 		RunId: "Run3",
 		HstId: "Host4",
 	}
@@ -35,6 +38,9 @@ func beforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, 
 }
 
 func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
+	// value for BusDt test needs to be Date type
+	futureDate, _ := common.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
+
 	tests := []struct {
 		name      string
 		testField string
@@ -98,7 +104,7 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 		{
 			name:      "when BusDt is future it returns invalid BusinessDate",
 			testField: "BusDt",
-			testValue: time.Now().Add(24 * time.Hour), // must be next day b/c BusDt is date only
+			testValue: futureDate,
 			wantErr:   "invalid BusinessDate",
 		},
 	}
@@ -151,7 +157,6 @@ func Test_jobStatusUC_Add_DatabaseErrorReturnsError(t *testing.T) {
 	if err == nil {
 		t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
 	}
-
 }
 
 func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
@@ -177,11 +182,13 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 	}
 
 	// extra safety checks for time data normalized; should never hit these
-	if tz, _ := js.BusinessDate.Zone(); tz != "UTC" || js.BusinessDate.Hour() != 0 ||
-		js.BusinessDate.Minute() != 0 || js.BusinessDate.Second() != 0 || js.BusinessDate.Nanosecond() != 0 {
-		t.Errorf("FAIL | BusinessDate not normalized %s", js.BusinessDate)
-		return
-	}
+
+	// no longer needed with Date type
+	// if tz, _ := js.BusinessDate.Zone(); tz != "UTC" || js.BusinessDate.Hour() != 0 ||
+	// 	js.BusinessDate.Minute() != 0 || js.BusinessDate.Second() != 0 || js.BusinessDate.Nanosecond() != 0 {
+	// 	t.Errorf("FAIL | BusinessDate not normalized %s", js.BusinessDate)
+	// 	return
+	// }
 	if tz, _ := js.JobStatusTimestamp.Zone(); tz != "UTC" || js.JobStatusTimestamp.Nanosecond() != 0 {
 		t.Errorf("FAIL | JobStatusTimestamp not normalized %s", js.JobStatusTimestamp)
 	}

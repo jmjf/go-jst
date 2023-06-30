@@ -1,6 +1,7 @@
 package jobStatus
 
 import (
+	"common"
 	"fmt"
 	"strings"
 	"time"
@@ -8,13 +9,13 @@ import (
 
 // Need to use uppercase field names so reflect can see them to use tags
 type JobStatusDto struct {
-	AppId string    `json:"applicationId"`
-	JobId string    `json:"jobId"`
-	JobSt string    `json:"jobStatusCode"`
-	JobTs time.Time `json:"jobStatusTimestamp"`
-	BusDt time.Time `json:"businessDate"`
-	RunId string    `json:"runId"`
-	HstId string    `json:"hostId"`
+	AppId string      `json:"applicationId"`
+	JobId string      `json:"jobId"`
+	JobSt string      `json:"jobStatusCode"`
+	JobTs time.Time   `json:"jobStatusTimestamp"`
+	BusDt common.Date `json:"businessDate"`
+	RunId string      `json:"runId"`
+	HstId string      `json:"hostId"`
 }
 
 // isUsable checks data on the DTO to ensure it can be used to create a JobStatus.
@@ -43,14 +44,14 @@ func (dto JobStatusDto) isUsable() []error {
 	}
 
 	// now < BusDt -> BusDt is in the future
-	if now.Compare(dto.BusDt) == -1 {
-		errs = append(errs, fmt.Errorf("invalid BusinessDate |%s|", dto.BusDt.Format(time.RFC3339)))
+	if now.Compare(time.Time(dto.BusDt)) == -1 {
+		errs = append(errs, fmt.Errorf("invalid BusinessDate |%s|", dto.BusDt))
 	}
 
 	// if JobTs < BusDt -> error
 	// need to think about this for TZ near international date line
-	if dto.JobTs.Compare(dto.BusDt) == -1 {
-		errs = append(errs, fmt.Errorf("JobTimestamp is less than BusinessDate |%s| |%s|", dto.JobTs.Format(time.RFC3339), dto.BusDt.Format(time.RFC3339)))
+	if dto.JobTs.Compare(time.Time(dto.BusDt)) == -1 {
+		errs = append(errs, fmt.Errorf("JobTimestamp is less than BusinessDate |%s| |%s|", dto.JobTs.Format(time.RFC3339), dto.BusDt))
 	}
 
 	if len(dto.RunId) > 50 {
@@ -71,8 +72,9 @@ func (dto JobStatusDto) isUsable() []error {
 func (dto *JobStatusDto) normalizeTimes() {
 	dto.JobTs = dto.JobTs.Truncate(time.Second).UTC()
 
-	yr, mo, dy := dto.BusDt.Date()
-	dto.BusDt = time.Date(yr, mo, dy, 0, 0, 0, 0, time.UTC)
+	// Date type's time components are already zero
+	// yr, mo, dy := dto.BusDt.Date()
+	// dto.BusDt = common.NewDate(fmt.Sprintf("time.Date(yr, mo, dy, 0, 0, 0, 0, time.UTC)
 }
 
 // jobStatusCode returns the job status code if dto.JobSt in the list of valid job status codes.
@@ -87,13 +89,13 @@ func (dto *JobStatusDto) jobStatusCode() JobStatusCodeType {
 }
 
 type JobStatus struct {
-	ApplicationId      string
-	JobId              JobIdType
-	JobStatusCode      JobStatusCodeType
-	JobStatusTimestamp time.Time
-	BusinessDate       time.Time
-	RunId              string
-	HostId             string
+	ApplicationId      string            `json:"applicationId"`
+	JobId              JobIdType         `json:"jobId"`
+	JobStatusCode      JobStatusCodeType `json:"jobStatusCode"`
+	JobStatusTimestamp time.Time         `json:"jobStatusTimestamp"`
+	BusinessDate       common.Date       `json:"businessDate"`
+	RunId              string            `json:"runId"`
+	HostId             string            `json:"hostId"`
 }
 
 // newJobStatus validates the DTO and returns a new JobStatus using data from the DTO.

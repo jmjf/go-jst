@@ -37,12 +37,17 @@ func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *htt
 		return
 	}
 
+	fmt.Printf("Controller | Call Add with dto %+v\n", dto)
+
 	// call use case with DTO
 	result, err := jsc.useCase.Add(dto)
 	if err != nil {
+		fmt.Printf("Controller | Add returned error %v\n", err)
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	fmt.Printf("Controller | Add returned result %+v\n", result)
 
 	// encode response (generic to all HTTP controllers)
 	encoder := json.NewEncoder(response)
