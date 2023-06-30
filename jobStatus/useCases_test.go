@@ -170,7 +170,8 @@ func Test_jobStatusUC_Add_DatabaseErrorReturnsError(t *testing.T) {
 	}
 	var re *common.RepoError
 	if errors.As(err, &re) {
-		if re.Code != "RepoOtherError" { // not exported, so using literal for now
+		fmt.Printf("re %+v", *re)
+		if re.Code != common.ErrcdRepoOther {
 			t.Errorf("FAIL | Expected RepoOtherError, got %+v", re)
 		}
 		// whether Code is wrong or not, we go the right type of error so we're done

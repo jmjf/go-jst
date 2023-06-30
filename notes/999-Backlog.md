@@ -52,7 +52,7 @@ I want my test database mocks to check argument order so I'm sure the data that 
 
 ## General
 
-### Consider simplifying errors
+### DONE: Consider simplifying errors
 
 I have `DomainError`, `AppError`, and `RepoError` so far. They're all the same. I'm not sure they'll ever diverge.
 

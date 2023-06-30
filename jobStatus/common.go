@@ -2,7 +2,6 @@ package jobStatus
 
 import (
 	"common"
-	"errors"
 )
 
 // Need to figure out what to call this.
@@ -31,17 +30,3 @@ const (
 // Use validJobStatusCodes to ensure a value is a valid job status; update if job status consts change.
 // INVALID is not a valid job status code, but it's defined for easy, safe checks for invalid.
 var validJobStatusCodes = []JobStatusCodeType{JobStatus_START, JobStatus_SUCCEED, JobStatus_FAIL}
-
-// Primitive errors to use with DomainError and AppError
-var (
-	errDomainProps    = errors.New("props error")
-	codeDomainProps   = "PropsError"
-	errAppUnexpected  = errors.New("unexpected error")
-	codeAppUnexpected = "UnexpectedError"
-	errRepoScanError  = errors.New("scan error")
-	codeRepoScanError = "ScanError"
-	// TODO: examine database error and classify it
-	// should retry? etc.
-	errRepoOtherError  = errors.New("other error")
-	codeRepoOtherError = "RepoOtherError"
-)

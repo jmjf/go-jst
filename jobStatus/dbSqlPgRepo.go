@@ -43,7 +43,7 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// jobStatus.JobStatusCode, jobStatus.JobStatusTimestamp,
 	// jobStatus.BusinessDate, jobStatus.RunId, jobStatus.HostId)
 	if err != nil {
-		return common.NewRepoError(err, codeRepoOtherError, jobStatus)
+		return common.NewRepoError(err, common.ErrcdRepoOther, jobStatus)
 	}
 
 	return nil
@@ -53,7 +53,7 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
-		return []JobStatus{}, common.NewRepoError(err, codeRepoOtherError, rows)
+		return []JobStatus{}, common.NewRepoError(err, common.ErrcdRepoOther, rows)
 	}
 	defer rows.Close()
 
@@ -68,7 +68,7 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
-		return []JobStatus{}, common.NewRepoError(err, codeRepoOtherError, rows)
+		return []JobStatus{}, common.NewRepoError(err, common.ErrcdRepoOther, rows)
 	}
 	defer rows.Close()
 
@@ -111,7 +111,7 @@ func dbToDomain(rows *sql.Rows) (JobStatus, error) {
 
 	err := rows.Scan(&appId, &jobId, &jobSt, &jobTs, &busDt, &runId, &hstId)
 	if err != nil {
-		return JobStatus{}, common.NewRepoError(err, codeRepoScanError, rows)
+		return JobStatus{}, common.NewRepoError(err, common.ErrcdRepoScan, rows)
 	}
 
 	return newJobStatus(JobStatusDto{

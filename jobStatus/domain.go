@@ -25,7 +25,7 @@ func newJobStatus(dto JobStatusDto) (JobStatus, error) {
 	errs := dto.isUsable()
 	if len(errs) > 0 {
 		// really want a custom error type and bundle all the errors in it
-		return JobStatus{}, common.NewDomainError(errDomainProps, codeDomainProps, errs)
+		return JobStatus{}, common.NewDomainError(common.ErrDomainProps, common.ErrcdDomainProps, errs)
 	}
 
 	// dto.isUsable() will return an error if the job status code isn't valid
