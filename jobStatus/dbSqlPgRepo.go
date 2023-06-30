@@ -43,7 +43,7 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// jobStatus.JobStatusCode, jobStatus.JobStatusTimestamp,
 	// jobStatus.BusinessDate, jobStatus.RunId, jobStatus.HostId)
 	if err != nil {
-		return err
+		return common.NewRepoError(err, codeRepoOtherError, jobStatus)
 	}
 
 	return nil
@@ -53,22 +53,30 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
-		return []JobStatus{}, err
+		return []JobStatus{}, common.NewRepoError(err, codeRepoOtherError, rows)
 	}
 	defer rows.Close()
 
-	return rowsToSlice(rows)
+	data, err := rowsToSlice(rows)
+	if err != nil {
+		return []JobStatus{}, common.WrapError(err)
+	}
+	return data, nil
 }
 
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
-		return []JobStatus{}, err
+		return []JobStatus{}, common.NewRepoError(err, codeRepoOtherError, rows)
 	}
 	defer rows.Close()
 
-	return rowsToSlice(rows)
+	data, err := rowsToSlice(rows)
+	if err != nil {
+		return []JobStatus{}, common.WrapError(err)
+	}
+	return data, nil
 }
 
 // rowsToSlice converts the database job status data in rows to a usable slice of JobStatus structs.
@@ -81,7 +89,7 @@ func rowsToSlice(rows *sql.Rows) ([]JobStatus, error) {
 
 		jobStatus, err := dbToDomain(rows)
 		if err != nil {
-			return []JobStatus{}, err
+			return []JobStatus{}, common.WrapError(err)
 		}
 
 		result = append(result, jobStatus)
@@ -103,7 +111,7 @@ func dbToDomain(rows *sql.Rows) (JobStatus, error) {
 
 	err := rows.Scan(&appId, &jobId, &jobSt, &jobTs, &busDt, &runId, &hstId)
 	if err != nil {
-		return JobStatus{}, err
+		return JobStatus{}, common.NewRepoError(err, codeRepoScanError, rows)
 	}
 
 	return newJobStatus(JobStatusDto{

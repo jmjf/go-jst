@@ -52,6 +52,14 @@ I want my test database mocks to check argument order so I'm sure the data that 
 
 ## General
 
+### Consider simplifying errors
+
+I have `DomainError`, `AppError`, and `RepoError` so far. They're all the same. I'm not sure they'll ever diverge.
+
+I want to answer the question, "Can I use a single custom error type?" so I can simplify errors if possible.
+
+I want to promote primitive errors and codes to the common package to reduce duplication and make them available to tests.
+
 ### Decide where server startup(s) go
 
 `go-slo` will end up running several different processes -- an HTTP API, consumers for the message bus, etc.

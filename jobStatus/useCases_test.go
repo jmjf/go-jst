@@ -3,6 +3,7 @@ package jobStatus_test
 import (
 	"common"
 	"database/sql"
+	"errors"
 	"fmt"
 	"jobStatus"
 	"reflect"
@@ -129,10 +130,19 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				t.Errorf("FAIL | Expected error %q, got: %+v", tt.wantErr, got)
 				return
 			}
-			match, _ := regexp.MatchString(tt.wantErr, err.Error())
-			if !match {
-				t.Errorf("FAIL | Expected error %q, got: %s", tt.wantErr, err)
+
+			var de *common.DomainError
+			if errors.As(err, &de) {
+				msg := de.Data.([]error)[0].Error()
+				match, _ := regexp.MatchString(tt.wantErr, msg)
+				if !match {
+					t.Errorf("FAIL | Expected error %q, got: %s", tt.wantErr, err)
+				}
+				// err is a DomainError so, we're good
+				return
 			}
+			t.Errorf("FAIL | Expected DomainError, got: %v", err)
+
 		})
 	}
 }
@@ -156,7 +166,17 @@ func Test_jobStatusUC_Add_DatabaseErrorReturnsError(t *testing.T) {
 	// Assert
 	if err == nil {
 		t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
+		return
 	}
+	var re *common.RepoError
+	if errors.As(err, &re) {
+		if re.Code != "RepoOtherError" { // not exported, so using literal for now
+			t.Errorf("FAIL | Expected RepoOtherError, got %+v", re)
+		}
+		// whether Code is wrong or not, we go the right type of error so we're done
+		return
+	}
+	t.Errorf("FAIL | Expected RepoError, got err: %v", err)
 }
 
 func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
@@ -177,7 +197,7 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 
 	// Assert
 	if err != nil {
-		t.Errorf("FAIL | Expected ok, got err: %s", err)
+		t.Errorf("FAIL | Expected ok, got err: %+v", err)
 		return
 	}
 

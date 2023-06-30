@@ -1,5 +1,7 @@
 package jobStatus
 
+import "common"
+
 type JobStatusUC interface {
 	Add(dto JobStatusDto) (JobStatus, error)
 	GetByJobId(dto JobStatusDto) ([]JobStatus, error)
@@ -19,12 +21,12 @@ func NewJobStatusUC(jsr JobStatusRepo) JobStatusUC {
 func (uc jobStatusUC) Add(dto JobStatusDto) (JobStatus, error) {
 	jobStatus, err := newJobStatus(dto)
 	if err != nil {
-		return JobStatus{}, err
+		return JobStatus{}, common.WrapError(err)
 	}
 
 	err = uc.jobStatusRepo.add(jobStatus)
 	if err != nil {
-		return JobStatus{}, err
+		return JobStatus{}, common.WrapError(err)
 	}
 
 	return jobStatus, nil
