@@ -4,7 +4,6 @@ import (
 	"common"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -35,8 +34,9 @@ func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *htt
 
 	err := decoder.Decode(&dto)
 	if err != nil {
-		logErr := common.NewCtrlError(err, common.ErrcdJsonDecode, request.Body)
-		logger.Error("JSON Decode Error", "err", logErr) // TODO improve error formatting
+		//
+		logErr := common.NewCommonError(err, common.ErrcdJsonDecode, request.Body)
+		common.LogError(logger, "JSON Decode Error", logErr.Error(), logErr)
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -48,48 +48,12 @@ func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *htt
 	if err != nil {
 		logErr := common.WrapError(err)
 		// Need to identify error type and get it for logging
-		var domainErr *common.DomainError
-		var repoErr *common.RepoError
-		var appErr *common.AppError
-		var baseErr *common.BaseError
+		var ce *common.CommonError
 		var responseStatus int
 
-		if errors.As(err, &domainErr) {
+		if errors.As(err, &ce) {
 			responseStatus = http.StatusBadRequest
-			logger.Error(domainErr.Err.Error(),
-				slog.String("callStack", logErr.Error()),
-				slog.String("fileName", repoErr.FileName),
-				slog.String("funcName", repoErr.FuncName),
-				slog.Int("lineNo", repoErr.LineNo),
-				"errorData", fmt.Sprintf("%+v", domainErr.Data),
-			)
-		} else if errors.As(err, &repoErr) {
-			switch repoErr.Code {
-			case common.ErrcdRepoDupeRow:
-				responseStatus = http.StatusConflict
-			default:
-				responseStatus = http.StatusInternalServerError
-			}
-
-			logger.Error(repoErr.Err.Error(),
-				slog.String("callStack", logErr.Error()),
-				slog.String("fileName", repoErr.FileName),
-				slog.String("funcName", repoErr.FuncName),
-				slog.Int("lineNo", repoErr.LineNo),
-				slog.String("code", repoErr.Code),
-			)
-		} else if errors.As(err, &appErr) {
-			responseStatus = http.StatusInternalServerError
-			logger.Error(appErr.Err.Error(),
-				slog.String("callStack", logErr.Error()),
-				slog.String("fileName", appErr.FileName),
-				slog.String("funcName", appErr.FuncName),
-				slog.Int("lineNo", appErr.LineNo),
-				slog.String("code", appErr.Code),
-			)
-		} else if errors.As(err, &baseErr) {
-			responseStatus = http.StatusInternalServerError
-			logger.Error("UnknownError", "callStack", logErr, "errorData", baseErr)
+			common.LogError(logger, ce.Err.Error(), logErr.Error(), ce)
 		} else {
 			responseStatus = http.StatusInternalServerError
 			logger.Error("Unknown error type", "err", err)

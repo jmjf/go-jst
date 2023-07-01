@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func beforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, jobStatus.JobStatusDto, error) {
@@ -131,7 +132,7 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				return
 			}
 
-			var de *common.DomainError
+			var de *common.CommonError
 			if errors.As(err, &de) {
 				// get the first error from Data and call Error() on it to get a string
 				msg := de.Data.([]error)[0].Error()
@@ -148,37 +149,65 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_Add_DatabaseErrorReturnsError(t *testing.T) {
-	// when it gets a database error, it should return an error
+func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
+	// when repo returns <error> it recognizes the error
 
 	// Arrange
-	db, mock, uc, dto, err := beforeEach(t)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name          string
+		testErr       error
+		expectErrCode string
+	}{
+		{
+			name:          "when repo returns RepoDupeRowError it recognizes the error",
+			testErr:       &pgconn.PgError{Code: "23505"},
+			expectErrCode: common.ErrcdRepoDupeRow,
+		},
+		{
+			name:          "when repo returns RepoConnExceptionError it recognizes the error",
+			testErr:       &pgconn.PgError{Code: "08xxx"}, // a family of errors that begin with "08"
+			expectErrCode: common.ErrcdRepoConnException,
+		},
+		{
+			name:          "when repo returns RepoOtherError it recognizes the error",
+			testErr:       &pgconn.PgError{Code: "unknown"},
+			expectErrCode: common.ErrcdRepoOther,
+		},
 	}
-	defer db.Close()
 
-	mock.ExpectExec(`INSERT INTO "JobStatus"`).
-		WillReturnError(fmt.Errorf("fake database error"))
+	for _, tt := range tests {
 
-		// Act
-	js, err := uc.Add(dto)
+		t.Run(tt.name, func(t *testing.T) {
 
-	// Assert
-	if err == nil {
-		t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
-		return
+			db, mock, uc, dto, err := beforeEach(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+
+			mock.ExpectExec(`INSERT INTO "JobStatus"`).
+				WillReturnError(tt.testErr)
+
+				// Act
+			js, err := uc.Add(dto)
+
+			// Assert
+			if err == nil {
+				t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
+				return
+			}
+			var re *common.CommonError
+			if errors.As(err, &re) {
+				// fmt.Printf("re %+v", *re)
+				if re.Code != tt.expectErrCode {
+					t.Errorf("FAIL | Expected %s, got %+v", tt.expectErrCode, re)
+				}
+				// whether Code is wrong or not, we go the right type of error so we're done
+				return
+			}
+			t.Errorf("FAIL | Expected CommonError, got err: %v", err)
+		})
 	}
-	var re *common.RepoError
-	if errors.As(err, &re) {
-		// fmt.Printf("re %+v", *re)
-		if re.Code != common.ErrcdRepoOther {
-			t.Errorf("FAIL | Expected RepoOtherError, got %+v", re)
-		}
-		// whether Code is wrong or not, we go the right type of error so we're done
-		return
-	}
-	t.Errorf("FAIL | Expected RepoError, got err: %v", err)
 }
 
 func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
@@ -204,13 +233,6 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 	}
 
 	// extra safety checks for time data normalized; should never hit these
-
-	// no longer needed with Date type
-	// if tz, _ := js.BusinessDate.Zone(); tz != "UTC" || js.BusinessDate.Hour() != 0 ||
-	// 	js.BusinessDate.Minute() != 0 || js.BusinessDate.Second() != 0 || js.BusinessDate.Nanosecond() != 0 {
-	// 	t.Errorf("FAIL | BusinessDate not normalized %s", js.BusinessDate)
-	// 	return
-	// }
 	if tz, _ := js.JobStatusTimestamp.Zone(); tz != "UTC" || js.JobStatusTimestamp.Nanosecond() != 0 {
 		t.Errorf("FAIL | JobStatusTimestamp not normalized %s", js.JobStatusTimestamp)
 	}
