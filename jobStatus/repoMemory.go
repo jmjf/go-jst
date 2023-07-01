@@ -15,6 +15,8 @@ func NewMemoryRepo(jobStatuses []JobStatus) JobStatusRepo {
 }
 
 // add inserts a JobStatus into the database.
+//
+// Mutates receiver: yes (mutex, data)
 func (repo *memoryRepo) add(jobStatus JobStatus) error {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
@@ -24,6 +26,8 @@ func (repo *memoryRepo) add(jobStatus JobStatus) error {
 }
 
 // GetByJobId retrieves JobStatus structs for a specific job id.
+//
+// Mutates receiver: yes (mutex)
 func (repo *memoryRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
@@ -38,6 +42,8 @@ func (repo *memoryRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 }
 
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
+//
+// Mutates receiver: yes (mutex)
 func (repo *memoryRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 
 	repo.mut.Lock()

@@ -20,11 +20,17 @@ type CommonError struct {
 	Err      error
 }
 
-func (ce *CommonError) Error() string {
+// CommonError.Error() returns a string representation of an error.
+//
+// Mutates receiver: no
+func (ce CommonError) Error() string {
 	return fmt.Sprintf("%s::%s::%d Code %s | %v", ce.FileName, ce.FuncName, ce.LineNo, ce.Code, ce.Err)
 }
 
-func (ce *CommonError) Unwrap() error {
+// CommonError.Unwrap() returns the error contained within the error.
+//
+// Mutates receiver: no
+func (ce CommonError) Unwrap() error {
 	return ce.Err
 }
 
@@ -78,9 +84,9 @@ var (
 	ErrcdJsonDecode = "JsonDecodeError"
 )
 
-// WrapError wraps an error with information about the WrapError caller.
-// When bubbling up errors, this simplifies wrapping and ensures consistent
-// lightweight stack traces.
+// WrapError returns an error that wraps the passed error with information
+// about the WrapError caller. When bubbling up errors, this simplifies
+// wrapping and ensures consistent lightweight stack traces.
 func WrapError(err error) error {
 	// get information about the function that called this one
 	pc, file, line, ok := runtime.Caller(1)

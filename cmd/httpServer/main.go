@@ -24,7 +24,7 @@ type routeHandler struct {
 	baseLogger *slog.Logger
 }
 
-func (rh *routeHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+func (rh routeHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	logger := rh.baseLogger.With("route", request.URL.Path, "method", request.Method)
 	if request.URL.Path == "/job-statuses" || request.URL.Path == "/job-statuses/" {
 		switch request.Method {
@@ -79,7 +79,7 @@ func main() {
 
 	fmt.Println(" -- NewJobStatusController")
 	rh := &routeHandler{
-		ctrl:       jobStatus.NewJobStatusController(uc),
+		ctrl:       jobStatus.NewJobStatusCtrl(uc),
 		baseLogger: logger,
 	}
 

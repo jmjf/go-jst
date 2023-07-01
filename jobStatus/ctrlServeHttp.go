@@ -16,12 +16,18 @@ type jobStatusCtrl struct {
 	useCase JobStatusUC
 }
 
-func NewJobStatusController(uc JobStatusUC) JobStatusCtrl {
+// NewJobStatusCtrl creates and returns a JobStatusCtrl
+func NewJobStatusCtrl(uc JobStatusUC) JobStatusCtrl {
 	return &jobStatusCtrl{
 		useCase: uc,
 	}
 }
 
+// JobStatusCtrl.AddJobStatus attempts to add a new job status record to the database.
+// If the request is invalid or adding fails, it logs errors and responds with
+// an appropriate HTTP status code.
+//
+// Mutates receiver: no
 func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *http.Request, logger *slog.Logger) {
 
 	// decode JSON into request data

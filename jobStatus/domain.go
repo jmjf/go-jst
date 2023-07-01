@@ -20,8 +20,6 @@ type JobStatus struct {
 //
 // If the DTO contains invalid data, it returns an error with details.
 func newJobStatus(dto JobStatusDto) (JobStatus, error) {
-	dto.normalizeTimes()
-
 	errs := dto.isUsable()
 	if len(errs) > 0 {
 		return JobStatus{}, common.NewCommonError(common.ErrDomainProps, common.ErrcdDomainProps, errs)
@@ -33,7 +31,7 @@ func newJobStatus(dto JobStatusDto) (JobStatus, error) {
 		ApplicationId:      dto.AppId,
 		JobId:              JobIdType(dto.JobId),
 		JobStatusCode:      dto.jobStatusCode(),
-		JobStatusTimestamp: dto.JobTs,
+		JobStatusTimestamp: common.TruncateTimeToMs(dto.JobTs),
 		BusinessDate:       dto.BusDt,
 		RunId:              dto.RunId,
 		HostId:             dto.HstId,

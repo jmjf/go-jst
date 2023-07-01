@@ -43,7 +43,7 @@ func beforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, 
 		AppId: "App1",
 		JobId: "Job2",
 		JobSt: string(jobStatus.JobStatus_START),
-		JobTs: time.Now().Truncate(time.Second),
+		JobTs: common.TruncateTimeToMs(time.Now()),
 		BusDt: busDt,
 		RunId: "Run3",
 		HstId: "Host4",
@@ -239,51 +239,11 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Act
-	js, err := uc.Add(dto)
+	_, err = uc.Add(dto)
 
 	// Assert
 	if err != nil {
 		t.Errorf("FAIL | Expected ok, got err: %+v", err)
 		return
 	}
-
-	// extra safety checks for time data normalized; should never hit these
-	if tz, _ := js.JobStatusTimestamp.Zone(); tz != "UTC" || js.JobStatusTimestamp.Nanosecond() != 0 {
-		t.Errorf("FAIL | JobStatusTimestamp not normalized %s", js.JobStatusTimestamp)
-	}
 }
-
-/***
-func Test_jobStatusUC_Add(t *testing.T) {
-	type fields struct {
-		jobStatusRepo JobStatusRepo
-	}
-	type args struct {
-		dto JobStatusDto
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    JobStatus
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			uc := jobStatusUC{
-				jobStatusRepo: tt.fields.jobStatusRepo,
-			}
-			got, err := uc.Add(tt.args.dto)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("jobStatusUC.Add() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("jobStatusUC.Add() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-***/

@@ -39,6 +39,8 @@ func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
 }
 
 // add inserts a JobStatus into the database.
+//
+// Mutates receiver: no
 func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
@@ -58,6 +60,8 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 }
 
 // GetByJobId retrieves JobStatus structs for a specific job id.
+//
+// Mutates receiver: no
 func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
@@ -78,6 +82,8 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 }
 
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
+//
+// Mutates receiver: no
 func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {

@@ -19,9 +19,10 @@ type JobStatusDto struct {
 }
 
 // isUsable checks data on the DTO to ensure it can be used to create a JobStatus.
-//
 // It returns an array of errors describing all data problems.
 // If len(errs) == 0, the DTO is good.
+//
+// Mutates receiver: no
 func (dto JobStatusDto) isUsable() []error {
 	errs := []error{}
 	now := time.Now()
@@ -65,21 +66,11 @@ func (dto JobStatusDto) isUsable() []error {
 	return errs
 }
 
-// normalizeTimes normalizes JobTs and BusDt to expected precision.
-//
-// Returns a JobStatusDto with JobTs truncated to seconds and converted to UTC
-// and BusDt truncated to day as UTC (not converted to UTC).
-func (dto *JobStatusDto) normalizeTimes() {
-	dto.JobTs = dto.JobTs.Truncate(time.Second).UTC()
-
-	// Date type's time components are already zero
-	// yr, mo, dy := dto.BusDt.Date()
-	// dto.BusDt = common.NewDate(fmt.Sprintf("time.Date(yr, mo, dy, 0, 0, 0, 0, time.UTC)
-}
-
 // jobStatusCode returns the job status code if dto.JobSt in the list of valid job status codes.
 // If code is not a valid job status code, it returns JobStatus_INVALID.
-func (dto *JobStatusDto) jobStatusCode() JobStatusCodeType {
+//
+// Mutates receiver: no
+func (dto JobStatusDto) jobStatusCode() JobStatusCodeType {
 	for _, jsc := range validJobStatusCodes {
 		if string(jsc) == strings.ToUpper(dto.JobSt) {
 			return jsc

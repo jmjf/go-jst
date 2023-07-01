@@ -80,7 +80,7 @@ I want to be able to compare `Date` and `time.Time` values without casting so co
 
 I don't know if I can make `time.Compare` work with a `Date`, but I can have `Date.Compare` and `Date.CompareToTime`, for example.
 
-### Pointer receivers vs. value receivers
+### DONE: Pointer receivers vs. value receivers
 
 When attaching methods to a `struct`, the receiver can be a pointer or value. Pointer receivers allow changing the instance referenced. Value receivers work on a copy.
 
