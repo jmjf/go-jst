@@ -8,14 +8,6 @@ While working, I often note things to do that must be deferred until later to st
 
 ### Core features that go to other use cases in the future
 
-* Change repos to use `newJobStatus` in `dbToDomain()`.
-* Add Logging
-  * Build middleware to log requests, responses, and response times (shared library module).
-  * Decide how to assign ids to requests.
-  * Investigate structured logging options and how to carry logging info for errors. Build custom errors and use them.
-    * BadDataError
-    * DatabaseError
-    * DuplicateRowError (is a DatabaseError)
 * Consider writing a `gormRepo` that uses `gorm`.
   * It's an ORM that seems to have key features I'd want, but needs more investigation.
 * Think about how to maintain and apply DDL
@@ -34,7 +26,7 @@ I want to ensure the business date value I receive from the job status source is
 
 DONE: Added a Date type that handles date-only data to/from JSON and used it for `BusinessDate`. Now JSON can send `2023-06-15` and it is decoded and encoded correctly.
 
-### Add error responses
+### DONE: Add error responses
 
 When the job status source sends invalid job status data to the HTTP API, I want to respond with an appropriate error so my code can log and handle the error and so the job status source can respond to the error (log, alert, handle, etc.).
 
@@ -44,7 +36,7 @@ When the job status source sends invalid job status data to the HTTP API, I want
 
 Custom errors define a `struct` and attach an `Error()` function to it. They can be returned as an `error`, but then they need to be type converted to get to the data. Maybe write a generic custom error that includes extra data I want for logging and a type, then I don't have to try for several possible type conversions. Also check `errors.Is()` and `errors.As()` and the idea of wrapping and unwrapping errors.
 
-### When testing, ensure WithArgs() checks argument order
+### DONE: When testing, ensure WithArgs() checks argument order
 
 Because I'm using a database library that requires met to write SQL statements and pass arguments manually, SQL argument order is critical to ensure good data.
 
@@ -68,7 +60,7 @@ I want to be able to build different executables and deploy them as independentl
 
 This topic needs some research.
 
-### Change naming pattern
+### DONE: Change naming pattern
 
 Currently, I have names like `dbSqlPgRepo`, `memoryRepo`, and `serveHttpControllers`. This pattern makes it harder to find similar adapters.
 
