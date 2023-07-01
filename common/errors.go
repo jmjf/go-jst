@@ -14,9 +14,9 @@ func WrapError(err error) error {
 	// get information about the function that called this one
 	pc, file, line, ok := runtime.Caller(1)
 	if !ok {
-		return fmt.Errorf("unknown caller | %w", err)
+		return fmt.Errorf("unknown caller <- %w", err)
 	}
-	return fmt.Errorf("%s.%s %d | %w", filepath.Base(file), runtime.FuncForPC(pc).Name(), line, err)
+	return fmt.Errorf("%s::%s::%d <- %w", filepath.Base(file), runtime.FuncForPC(pc).Name(), line, err)
 }
 
 // BaseError holds error data common to all errors
@@ -30,7 +30,7 @@ type BaseError struct {
 }
 
 func (be *BaseError) Error() string {
-	return fmt.Sprintf("%s.%s %s | %v", be.FileName, be.FuncName, be.Code, be.Err)
+	return fmt.Sprintf("%s::%s::%d Code %s | %v", be.FileName, be.FuncName, be.LineNo, be.Code, be.Err)
 }
 
 func (be *BaseError) Unwrap() error {
@@ -116,10 +116,14 @@ func NewRepoError(err error, code string, data any) *RepoError {
 
 // Primitive errors an error codes for RepoError
 var (
-	ErrRepoScan    = errors.New("scan error")
-	ErrcdRepoScan  = "ScanError"
-	ErrRepoOther   = errors.New("other error")
-	ErrcdRepoOther = "RepoOtherError"
+	ErrRepoScan            = errors.New("scan error")
+	ErrcdRepoScan          = "ScanError"
+	ErrRepoDupeRow         = errors.New("duplicate row error")
+	ErrcdRepoDupeRow       = "DuplicateRowError"
+	ErrRepoConnException   = errors.New("connection exception error")
+	ErrcdRepoConnException = "ConnectionExceptionError"
+	ErrRepoOther           = errors.New("other error")
+	ErrcdRepoOther         = "RepoOtherError"
 	// TODO: examine database error and classify it
 	// should retry? etc.
 )

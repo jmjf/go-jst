@@ -133,6 +133,7 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 
 			var de *common.DomainError
 			if errors.As(err, &de) {
+				// get the first error from Data and call Error() on it to get a string
 				msg := de.Data.([]error)[0].Error()
 				match, _ := regexp.MatchString(tt.wantErr, msg)
 				if !match {
@@ -170,7 +171,7 @@ func Test_jobStatusUC_Add_DatabaseErrorReturnsError(t *testing.T) {
 	}
 	var re *common.RepoError
 	if errors.As(err, &re) {
-		fmt.Printf("re %+v", *re)
+		// fmt.Printf("re %+v", *re)
 		if re.Code != common.ErrcdRepoOther {
 			t.Errorf("FAIL | Expected RepoOtherError, got %+v", re)
 		}

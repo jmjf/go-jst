@@ -3,7 +3,10 @@ package jobStatus
 import (
 	"common"
 	"database/sql"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type dbSqlPgRepo struct {
@@ -43,7 +46,12 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// jobStatus.JobStatusCode, jobStatus.JobStatusTimestamp,
 	// jobStatus.BusinessDate, jobStatus.RunId, jobStatus.HostId)
 	if err != nil {
-		return common.NewRepoError(err, common.ErrcdRepoOther, jobStatus)
+		errCode := common.ErrcdRepoOther
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			errCode = getPgErrorCode(pgErr.Code)
+		}
+		return common.NewRepoError(err, errCode, jobStatus)
 	}
 
 	return nil
@@ -53,7 +61,12 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
-		return []JobStatus{}, common.NewRepoError(err, common.ErrcdRepoOther, rows)
+		errCode := common.ErrcdRepoOther
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			errCode = getPgErrorCode(pgErr.Code)
+		}
+		return []JobStatus{}, common.NewRepoError(err, errCode, rows)
 	}
 	defer rows.Close()
 
@@ -68,7 +81,12 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
-		return []JobStatus{}, common.NewRepoError(err, common.ErrcdRepoOther, rows)
+		errCode := common.ErrcdRepoOther
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			errCode = getPgErrorCode(pgErr.Code)
+		}
+		return []JobStatus{}, common.NewRepoError(err, errCode, rows)
 	}
 	defer rows.Close()
 
@@ -77,6 +95,18 @@ func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Dat
 		return []JobStatus{}, common.WrapError(err)
 	}
 	return data, nil
+}
+
+// getPgErrorCode converts a raw Postgres 11 error code value to a known error code
+func getPgErrorCode(code string) string {
+	switch {
+	case code == "23505":
+		return common.ErrcdRepoDupeRow
+	case code[0:2] == "08":
+		return common.ErrcdRepoConnException
+	default:
+		return common.ErrcdRepoOther
+	}
 }
 
 // rowsToSlice converts the database job status data in rows to a usable slice of JobStatus structs.
