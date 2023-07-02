@@ -5,6 +5,23 @@ import (
 	"time"
 )
 
+// I'm doing status these types the easy way for now.
+// If I want to have database table of job statuses, I could build a map[string]int and load it.
+// That's overkill for now, so keeping it simple.
+type JobStatusCodeType string
+type JobIdType string
+
+const (
+	JobStatus_INVALID JobStatusCodeType = "INVALID"
+	JobStatus_START   JobStatusCodeType = "START"
+	JobStatus_SUCCEED JobStatusCodeType = "SUCCEED"
+	JobStatus_FAIL    JobStatusCodeType = "FAIL"
+)
+
+// Use validJobStatusCodes to ensure a value is a valid job status; update if job status consts change.
+// INVALID is not a valid job status code, but it's defined for easy, safe checks for invalid.
+var validJobStatusCodes = []JobStatusCodeType{JobStatus_START, JobStatus_SUCCEED, JobStatus_FAIL}
+
 type JobStatus struct {
 	ApplicationId      string            `json:"applicationId"`
 	JobId              JobIdType         `json:"jobId"`
