@@ -3,7 +3,6 @@ package jobStatus_test
 import (
 	"common"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"jobStatus"
@@ -15,18 +14,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jackc/pgx/v5/pgconn"
 )
-
-type matchTime struct {
-	t time.Time
-}
-
-func (mt matchTime) Match(v driver.Value) bool {
-	v1, ok := v.(time.Time)
-	if ok && v1.Compare(mt.t) == 0 {
-		return true
-	}
-	return false
-}
 
 func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, jobStatus.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
@@ -199,7 +186,7 @@ func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
 			defer db.Close()
 
 			mock.ExpectExec(`INSERT INTO "JobStatus"`).
-				WithArgs(dto.AppId, dto.JobId, dto.JobSt, matchTime{t: dto.JobTs}, matchTime{t: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
+				WithArgs(dto.AppId, dto.JobId, dto.JobSt, common.MatchTime{Value: dto.JobTs}, common.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 				WillReturnError(tt.testErr)
 
 				// Act
@@ -235,7 +222,7 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 	defer db.Close()
 
 	mock.ExpectExec(`INSERT INTO "JobStatus"`).
-		WithArgs(dto.AppId, dto.JobId, dto.JobSt, matchTime{t: dto.JobTs}, matchTime{t: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
+		WithArgs(dto.AppId, dto.JobId, dto.JobSt, common.MatchTime{Value: dto.JobTs}, common.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Act

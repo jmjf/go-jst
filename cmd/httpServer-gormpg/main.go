@@ -42,16 +42,16 @@ func (rh routeHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 }
 
 func newLogger() *slog.Logger {
-	handlerOpts := slog.HandlerOptions{
-		AddSource: false,
-		Level:     slog.LevelInfo, // TODO: get from env or command line
-	}
-	handler := slog.NewJSONHandler(os.Stdout, &handlerOpts)
-
 	hostName, err := os.Hostname()
 	if err != nil {
 		fmt.Printf("ERROR getting hostname: %v\n", err)
+		hostName = "unknown"
 	}
+
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: false,
+		Level:     slog.LevelInfo, // TODO: get from env or command line
+	})
 
 	return slog.New(handler.WithAttrs([]slog.Attr{
 		slog.String("applicationName", "go-slo"),
@@ -67,7 +67,7 @@ func main() {
 	pgDsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
 	fmt.Printf(" -- Connect to %s\n", pgDsn)
 	db, err := gorm.Open(postgres.Open(pgDsn), &gorm.Config{
-		TranslateError: true,
+		TranslateError: false, // get raw Postgres errors because they're more expressive
 		Logger:         gormLogger.Default.LogMode(gormLogger.Silent),
 		// Logger: logger, // doesn't work because gorm's logger interface is different; will need to translate
 		NowFunc: func() time.Time { return time.Now().UTC() }, // ensure times are UTC

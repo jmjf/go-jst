@@ -2,7 +2,6 @@ package jobStatus
 
 import (
 	"common"
-	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -43,8 +42,8 @@ func (repo gormPgRepo) add(jobStatus JobStatus) error {
 	result := repo.db.Create(&dbData)
 
 	if result.Error != nil {
-		code := repo.getErrorCode(result.Error)
-		return common.NewCommonError(result.Error, code, dbData)
+		code := common.PgErrToCommon(result.Error)
+		return common.NewCommonError(result.Error, code, jobStatus)
 	}
 
 	return nil
@@ -61,8 +60,8 @@ func (repo gormPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	result := repo.db.Where("JobId = @jobId", whereMap).Find(&dbStatuses)
 
 	if result.Error != nil {
-		code := repo.getErrorCode(result.Error)
-		return []JobStatus{}, common.NewCommonError(result.Error, code, dbStatuses)
+		code := common.PgErrToCommon(result.Error)
+		return []JobStatus{}, common.NewCommonError(result.Error, code, map[string]any{"jobId": jobId})
 	}
 
 	data, err := repo.rowsToDomain(dbStatuses)
@@ -86,8 +85,8 @@ func (repo gormPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date
 	result := repo.db.Where("JobId = @jobId and BusinessDate = @busDt", whereMap).Find(&dbStatuses)
 
 	if result.Error != nil {
-		code := repo.getErrorCode(result.Error)
-		return []JobStatus{}, common.NewCommonError(result.Error, code, dbStatuses)
+		code := common.PgErrToCommon(result.Error)
+		return []JobStatus{}, common.NewCommonError(result.Error, code, map[string]any{"jobId": jobId, "busDt": busDt})
 	}
 
 	data, err := repo.rowsToDomain(dbStatuses)
@@ -95,21 +94,6 @@ func (repo gormPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date
 		return []JobStatus{}, common.WrapError(err)
 	}
 	return data, nil
-}
-
-// getErrorCode returns an application standard code that maps to a gorm error.
-// It returns (error, string) always.
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
-func (repo gormPgRepo) getErrorCode(err error) string {
-	switch {
-	case errors.Is(err, gorm.ErrDuplicatedKey):
-		return common.ErrcdRepoDupeRow
-	case errors.Is(err, gorm.ErrInvalidDB):
-		return common.ErrcdRepoConnException
-	default:
-		return common.ErrcdRepoOther
-	}
 }
 
 // domainToGormPg converts a JobStatus to a GormJobStatusModel

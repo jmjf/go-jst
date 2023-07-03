@@ -3,10 +3,7 @@ package jobStatus
 import (
 	"common"
 	"database/sql"
-	"errors"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type dbSqlPgRepo struct {
@@ -44,18 +41,10 @@ func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
 func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	_, err := repo.db.Exec(repo.sqlInsert, repo.domainToDb(jobStatus)...)
-	// jobStatus.ApplicationId, jobStatus.JobId,
-	// jobStatus.JobStatusCode, jobStatus.JobStatusTimestamp,
-	// jobStatus.BusinessDate, jobStatus.RunId, jobStatus.HostId)
 	if err != nil {
-		errCode := common.ErrcdRepoOther
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			errCode = repo.getErrorCode(pgErr.Code)
-		}
-		return common.NewCommonError(err, errCode, jobStatus)
+		code := common.PgErrToCommon(err)
+		return common.NewCommonError(err, code, jobStatus)
 	}
-
 	return nil
 }
 
@@ -65,12 +54,8 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
-		errCode := common.ErrcdRepoOther
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			errCode = repo.getErrorCode(pgErr.Code)
-		}
-		return []JobStatus{}, common.NewCommonError(err, errCode, rows)
+		code := common.PgErrToCommon(err)
+		return []JobStatus{}, common.NewCommonError(err, code, map[string]any{"jobId": jobId})
 	}
 	defer rows.Close()
 
@@ -87,12 +72,8 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
-		errCode := common.ErrcdRepoOther
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			errCode = repo.getErrorCode(pgErr.Code)
-		}
-		return []JobStatus{}, common.NewCommonError(err, errCode, rows)
+		code := common.PgErrToCommon(err)
+		return []JobStatus{}, common.NewCommonError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
 	}
 	defer rows.Close()
 
@@ -101,20 +82,6 @@ func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Dat
 		return []JobStatus{}, common.WrapError(err)
 	}
 	return data, nil
-}
-
-// getErrorCode converts a raw Postgres 11 error code value to a known error code
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
-func (repo dbSqlPgRepo) getErrorCode(code string) string {
-	switch {
-	case code == "23505":
-		return common.ErrcdRepoDupeRow
-	case code[0:2] == "08":
-		return common.ErrcdRepoConnException
-	default:
-		return common.ErrcdRepoOther
-	}
 }
 
 // rowsToDomain converts a slice of database job status data to a slice of domain data by calling dbToDomain() for each item.

@@ -15,19 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 )
-
-// type matchTime struct {
-// 	t time.Time
-// }
-
-// func (mt matchTime) Match(v driver.Value) bool {
-// 	v1, ok := v.(time.Time)
-// 	if ok && v1.Compare(mt.t) == 0 {
-// 		return true
-// 	}
-// 	return false
-// }
 
 func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, jobStatus.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
@@ -40,7 +29,11 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 			Conn:       db,
 			DriverName: "postgres",
 		},
-	), &gorm.Config{})
+	), &gorm.Config{
+		TranslateError: false, // get raw Postgres errors because they're more expressive
+		Logger:         gormLogger.Default.LogMode(gormLogger.Silent),
+		NowFunc:        func() time.Time { return time.Now().UTC() }, // ensure times are UTC
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -211,7 +204,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 
 			mock.ExpectBegin()
 			mock.ExpectExec(`INSERT INTO "JobStatus"`).
-				WithArgs(dto.AppId, dto.JobId, dto.JobSt, matchTime{t: dto.JobTs}, matchTime{t: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
+				WithArgs(dto.AppId, dto.JobId, dto.JobSt, common.MatchTime{Value: dto.JobTs}, common.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 				WillReturnError(tt.testErr)
 			mock.ExpectRollback()
 
@@ -249,7 +242,7 @@ func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "JobStatus"`).
-		WithArgs(dto.AppId, dto.JobId, dto.JobSt, matchTime{t: dto.JobTs}, matchTime{t: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
+		WithArgs(dto.AppId, dto.JobId, dto.JobSt, common.MatchTime{Value: dto.JobTs}, common.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
