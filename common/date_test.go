@@ -54,7 +54,7 @@ func Test_date_Marshal_ConvertsDateToJson(t *testing.T) {
 
 	got, err := json.Marshal(testStruct)
 	if err != nil {
-		fmt.Errorf("FAIL | error %v | got %s", err, string(got))
+		t.Errorf("FAIL | error %v | got %s", err, string(got))
 		return
 	}
 	if string(got) != expected {
