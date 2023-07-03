@@ -101,23 +101,21 @@ var isEmptyJson = regexp.MustCompile(`^[\[\],{}]+$`).MatchString
 
 // LogError logs an error message using, applying a common pattern.
 func LogError(logger *slog.Logger, msg string, callStack string, ce *CommonError) {
-	// When ce.Data is an array of errors, json.Marshal returns [{}].
-	// If json.Marshal returns no usable data, use Sprintf hoping for something usable.
-	d, _ := json.Marshal(ce.Data)
-	errData := string(d)
-	if isEmptyJson(errData) {
+	errData := ce.Data
+
+	// When ce.Data is an array of errors, json.Marshal() returns [{}].
+	// If json.Marshal() returns no usable data, use Sprintf hoping for something usable.
+	eJson, _ := json.Marshal(errData)
+	if isEmptyJson(string(eJson)) {
 		errData = fmt.Sprintf("%v", ce.Data)
-		// slice off leading/trailing [] if present
-		if errData[0] == '[' {
-			errData = errData[1 : len(errData)-1]
-		}
 	}
+	// else, use errData from ce.Data (at top of func)
 
 	logger.Error(msg,
 		slog.String("callStack", callStack),
 		slog.String("fileName", ce.FileName),
 		slog.String("funcName", ce.FuncName),
 		slog.Int("lineNo", ce.LineNo),
-		slog.String("errorData", errData),
+		slog.Any("errorData", errData),
 	)
 }
