@@ -1,4 +1,4 @@
-module httpServer
+module httpServer-dbpg
 
 go 1.20
 

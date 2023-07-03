@@ -43,7 +43,7 @@ func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
 // Mutates receiver: no
 func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
-	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
+	_, err := repo.db.Exec(repo.sqlInsert, repo.domainToDb(jobStatus)...)
 	// jobStatus.ApplicationId, jobStatus.JobId,
 	// jobStatus.JobStatusCode, jobStatus.JobStatusTimestamp,
 	// jobStatus.BusinessDate, jobStatus.RunId, jobStatus.HostId)
@@ -51,7 +51,7 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 		errCode := common.ErrcdRepoOther
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
-			errCode = getPgErrorCode(pgErr.Code)
+			errCode = repo.getErrorCode(pgErr.Code)
 		}
 		return common.NewCommonError(err, errCode, jobStatus)
 	}
@@ -68,13 +68,13 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 		errCode := common.ErrcdRepoOther
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
-			errCode = getPgErrorCode(pgErr.Code)
+			errCode = repo.getErrorCode(pgErr.Code)
 		}
 		return []JobStatus{}, common.NewCommonError(err, errCode, rows)
 	}
 	defer rows.Close()
 
-	data, err := rowsToSlice(rows)
+	data, err := repo.rowsToDomain(rows)
 	if err != nil {
 		return []JobStatus{}, common.WrapError(err)
 	}
@@ -90,21 +90,23 @@ func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Dat
 		errCode := common.ErrcdRepoOther
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
-			errCode = getPgErrorCode(pgErr.Code)
+			errCode = repo.getErrorCode(pgErr.Code)
 		}
 		return []JobStatus{}, common.NewCommonError(err, errCode, rows)
 	}
 	defer rows.Close()
 
-	data, err := rowsToSlice(rows)
+	data, err := repo.rowsToDomain(rows)
 	if err != nil {
 		return []JobStatus{}, common.WrapError(err)
 	}
 	return data, nil
 }
 
-// getPgErrorCode converts a raw Postgres 11 error code value to a known error code
-func getPgErrorCode(code string) string {
+// getErrorCode converts a raw Postgres 11 error code value to a known error code
+//
+// Mutates receiver: no (doesn't use; receiver for namespace only)
+func (repo dbSqlPgRepo) getErrorCode(code string) string {
 	switch {
 	case code == "23505":
 		return common.ErrcdRepoDupeRow
@@ -115,15 +117,16 @@ func getPgErrorCode(code string) string {
 	}
 }
 
-// rowsToSlice converts the database job status data in rows to a usable slice of JobStatus structs.
-//
+// rowsToDomain converts a slice of database job status data to a slice of domain data by calling dbToDomain() for each item.
 // If dbToDomain() fails to convert any row in the result set, it returns an empty slice and an error.
-func rowsToSlice(rows *sql.Rows) ([]JobStatus, error) {
+//
+// Mutates receiver: no (doesn't use; receiver for namespace only)
+func (repo dbSqlPgRepo) rowsToDomain(rows *sql.Rows) ([]JobStatus, error) {
 	var result []JobStatus
 
 	for rows.Next() {
 
-		jobStatus, err := dbToDomain(rows)
+		jobStatus, err := repo.dbToDomain(rows)
 		if err != nil {
 			return []JobStatus{}, common.WrapError(err)
 		}
@@ -134,7 +137,9 @@ func rowsToSlice(rows *sql.Rows) ([]JobStatus, error) {
 }
 
 // dbToDomain converts database job status data to a JobStatus struct by scanning rows for values and building JobStatus.
-func dbToDomain(rows *sql.Rows) (JobStatus, error) {
+//
+// Mutates receiver: no (doesn't use; receiver for namespace only)
+func (repo dbSqlPgRepo) dbToDomain(rows *sql.Rows) (JobStatus, error) {
 	var (
 		appId string
 		jobId JobIdType
@@ -162,13 +167,12 @@ func dbToDomain(rows *sql.Rows) (JobStatus, error) {
 }
 
 // domainToDb converts a JobStatus into an array of values to insert.
-//
 // SQL statements that specify values must use the expected order.
 //
-// Expected order:
+// Expected order: ApplicationId, JobId, JobStatusCode, BusinessDate, RunId, HostId
 //
-//	ApplicationId, JobId, JobStatusCode, BusinessDate, RunId, HostId
-func domainToDb(jobStatus JobStatus) []any {
+// Mutates receiver: no (doesn't use; receiver for namespace only)
+func (db dbSqlPgRepo) domainToDb(jobStatus JobStatus) []any {
 	return []any{
 		jobStatus.ApplicationId,
 		jobStatus.JobId,

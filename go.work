@@ -1,7 +1,8 @@
-go 1.20
+go 1.21rc2
 
 use (
+	./cmd/gmt
 	./cmd/testRepo
-	./jobStatus
 	./common
+	./jobStatus
 )

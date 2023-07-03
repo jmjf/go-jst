@@ -3,7 +3,6 @@ package jobStatus_test
 import (
 	"common"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"jobStatus"
@@ -14,27 +13,39 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jackc/pgx/v5/pgconn"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-type matchTime struct {
-	t time.Time
-}
+// type matchTime struct {
+// 	t time.Time
+// }
 
-func (mt matchTime) Match(v driver.Value) bool {
-	v1, ok := v.(time.Time)
-	if ok && v1.Compare(mt.t) == 0 {
-		return true
-	}
-	return false
-}
+// func (mt matchTime) Match(v driver.Value) bool {
+// 	v1, ok := v.(time.Time)
+// 	if ok && v1.Compare(mt.t) == 0 {
+// 		return true
+// 	}
+// 	return false
+// }
 
-func beforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, jobStatus.JobStatusDto, error) {
+func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, jobStatus.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jsRepo := jobStatus.NewDbSqlPgRepo(db)
+	gormDb, err := gorm.Open(postgres.New(
+		postgres.Config{
+			Conn:       db,
+			DriverName: "postgres",
+		},
+	), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	jsRepo := jobStatus.NewGormPgRepo(gormDb)
 	uc := jobStatus.NewJobStatusUC(jsRepo)
 
 	busDt, err := common.NewDate("2023-06-20")
@@ -49,10 +60,10 @@ func beforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, 
 		HstId: "Host4",
 	}
 
-	return db, mock, uc, dto, err
+	return gormDb, db, mock, uc, dto, err
 }
 
-func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
+func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	// value for BusDt test needs to be Date type
 	futureDate, _ := common.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
 
@@ -128,10 +139,11 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			_, _, uc, dto, err := beforeEach(t) // don't need db or mock
+			_, db, _, uc, dto, err := gormBeforeEach(t) // don't need db or mock
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer db.Close()
 
 			// set the value of the field to test
 			tf := reflect.ValueOf(&dto).Elem().FieldByName(tt.testField)
@@ -157,12 +169,11 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				return
 			}
 			t.Errorf("FAIL | Expected DomainError, got: %v", err)
-
 		})
 	}
 }
 
-func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
+func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 	// when repo returns <error> it recognizes the error
 
 	// Arrange
@@ -192,17 +203,19 @@ func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			db, mock, uc, dto, err := beforeEach(t)
+			_, db, mock, uc, dto, err := gormBeforeEach(t)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer db.Close()
 
+			mock.ExpectBegin()
 			mock.ExpectExec(`INSERT INTO "JobStatus"`).
 				WithArgs(dto.AppId, dto.JobId, dto.JobSt, matchTime{t: dto.JobTs}, matchTime{t: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 				WillReturnError(tt.testErr)
+			mock.ExpectRollback()
 
-				// Act
+			// Act
 			js, err := uc.Add(dto)
 
 			// Assert
@@ -224,19 +237,21 @@ func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
+func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 	// when data is good it returns a JobStatus
 
 	// Arrange
-	db, mock, uc, dto, err := beforeEach(t)
+	_, db, mock, uc, dto, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
+	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "JobStatus"`).
 		WithArgs(dto.AppId, dto.JobId, dto.JobSt, matchTime{t: dto.JobTs}, matchTime{t: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	// Act
 	_, err = uc.Add(dto)
