@@ -2,7 +2,6 @@ go 1.21rc2
 
 use (
 	./cmd/gmt
-	./cmd/testRepo
 	./common
 	./jobStatus
 )
