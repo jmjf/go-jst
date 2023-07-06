@@ -1,15 +1,18 @@
 package jobStatus_test
 
 import (
-	"common"
 	"database/sql"
 	"errors"
 	"fmt"
-	"jobStatus"
 	"reflect"
 	"regexp"
 	"testing"
 	"time"
+
+	"go-slo/internal"
+	"go-slo/internal/jobStatus"
+	repo "go-slo/internal/jobStatus/db/gorm"
+	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -18,7 +21,7 @@ import (
 	gormLogger "gorm.io/gorm/logger"
 )
 
-func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, jobStatus.JobStatusDto, error) {
+func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, dtoType.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
@@ -38,16 +41,16 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 		panic(err)
 	}
 
-	jsRepo := jobStatus.NewGormPgRepo(gormDb)
+	jsRepo := repo.NewGormPgRepo(gormDb)
 	uc := jobStatus.NewJobStatusUC(jsRepo)
 
-	busDt, err := common.NewDate("2023-06-20")
+	busDt, err := internal.NewDate("2023-06-20")
 
-	dto := jobStatus.JobStatusDto{
+	dto := dtoType.JobStatusDto{
 		AppId: "App1",
 		JobId: "Job2",
 		JobSt: string(jobStatus.JobStatus_START),
-		JobTs: common.TruncateTimeToMs(time.Now()),
+		JobTs: internal.TruncateTimeToMs(time.Now()),
 		BusDt: busDt,
 		RunId: "Run3",
 		HstId: "Host4",
@@ -58,7 +61,7 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 
 func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	// value for BusDt test needs to be Date type
-	futureDate, _ := common.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
+	futureDate, _ := internal.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
 
 	tests := []struct {
 		name      string
@@ -150,7 +153,7 @@ func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				return
 			}
 
-			var de *common.CommonError
+			var de *internal.CommonError
 			if errors.As(err, &de) {
 				// get the first error from Data and call Error() on it to get a string
 				msg := de.Data.([]error)[0].Error()
@@ -178,17 +181,17 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 		{
 			name:          "when repo returns RepoDupeRowError it recognizes the error",
 			testErr:       &pgconn.PgError{Code: "23505"},
-			expectErrCode: common.ErrcdRepoDupeRow,
+			expectErrCode: internal.ErrcdRepoDupeRow,
 		},
 		{
 			name:          "when repo returns RepoConnExceptionError it recognizes the error",
 			testErr:       &pgconn.PgError{Code: "08xxx"}, // a family of errors that begin with "08"
-			expectErrCode: common.ErrcdRepoConnException,
+			expectErrCode: internal.ErrcdRepoConnException,
 		},
 		{
 			name:          "when repo returns RepoOtherError it recognizes the error",
 			testErr:       &pgconn.PgError{Code: "unknown"},
-			expectErrCode: common.ErrcdRepoOther,
+			expectErrCode: internal.ErrcdRepoOther,
 		},
 	}
 
@@ -204,7 +207,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 
 			mock.ExpectBegin()
 			mock.ExpectExec(`INSERT INTO "JobStatus"`).
-				WithArgs(dto.AppId, dto.JobId, dto.JobSt, common.MatchTime{Value: dto.JobTs}, common.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
+				WithArgs(dto.AppId, dto.JobId, dto.JobSt, internal.MatchTime{Value: dto.JobTs}, internal.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 				WillReturnError(tt.testErr)
 			mock.ExpectRollback()
 
@@ -216,7 +219,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 				t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
 				return
 			}
-			var re *common.CommonError
+			var re *internal.CommonError
 			if errors.As(err, &re) {
 				// fmt.Printf("re %+v", *re)
 				if re.Code != tt.expectErrCode {
@@ -242,7 +245,7 @@ func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "JobStatus"`).
-		WithArgs(dto.AppId, dto.JobId, dto.JobSt, common.MatchTime{Value: dto.JobTs}, common.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
+		WithArgs(dto.AppId, dto.JobId, dto.JobSt, internal.MatchTime{Value: dto.JobTs}, internal.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 

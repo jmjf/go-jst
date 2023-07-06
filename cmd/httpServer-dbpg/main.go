@@ -3,10 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"jobStatus"
 	"log/slog"
 	"net/http"
 	"os"
+
+	"go-slo/internal/jobStatus"
+	repo "go-slo/internal/jobStatus/db/dbSqlPgx"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -72,7 +74,7 @@ func main() {
 	defer db.Close()
 
 	fmt.Println(" -- NewDbSqlRepo")
-	dbSqlRepo := jobStatus.NewDbSqlPgRepo(db)
+	dbSqlRepo := repo.NewDbSqlPgRepo(db)
 
 	fmt.Println(" -- NewJobStatusUC")
 	uc := jobStatus.NewJobStatusUC(dbSqlRepo)

@@ -1,25 +1,26 @@
-package common_test
+package internal_test
 
 import (
-	"common"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
+
+	"go-slo/internal"
 )
 
 type TestStruct struct {
-	Name string      `json:"name"`
-	Dt   common.Date `json:"dt"`
+	Name string        `json:"name"`
+	Dt   internal.Date `json:"dt"`
 }
 
 const testDateStr = "2023-06-20"
 
-var testDate, _ = common.NewDate(testDateStr)
+var testDate, _ = internal.NewDate(testDateStr)
 
 func Test_date_String_ConvertsToString(t *testing.T) {
 	expected := testDateStr
-	dt, err := common.NewDate(expected)
+	dt, err := internal.NewDate(expected)
 	if err != nil {
 		t.Errorf("FAIL | err %v", err)
 		return

@@ -1,12 +1,9 @@
 package jobStatus
 
-import "common"
-
-type JobStatusUC interface {
-	Add(dto JobStatusDto) (JobStatus, error)
-	GetByJobId(dto JobStatusDto) ([]JobStatus, error)
-	GetByJobIdBusDt(dto JobStatusDto) ([]JobStatus, error)
-}
+import (
+	"go-slo/internal"
+	dtoType "go-slo/public/jobStatus/http/20230701"
+)
 
 type jobStatusUC struct {
 	jobStatusRepo JobStatusRepo
@@ -24,15 +21,15 @@ func NewJobStatusUC(jsr JobStatusRepo) JobStatusUC {
 // Returns an error (CommonError) and empty JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc jobStatusUC) Add(dto JobStatusDto) (JobStatus, error) {
-	jobStatus, err := newJobStatus(dto)
+func (uc jobStatusUC) Add(dto dtoType.JobStatusDto) (JobStatus, error) {
+	jobStatus, err := NewJobStatus(dto)
 	if err != nil {
-		return JobStatus{}, common.WrapError(err)
+		return JobStatus{}, internal.WrapError(err)
 	}
 
-	err = uc.jobStatusRepo.add(jobStatus)
+	err = uc.jobStatusRepo.Add(jobStatus)
 	if err != nil {
-		return JobStatus{}, common.WrapError(err)
+		return JobStatus{}, internal.WrapError(err)
 	}
 
 	return jobStatus, nil
@@ -43,7 +40,7 @@ func (uc jobStatusUC) Add(dto JobStatusDto) (JobStatus, error) {
 // Returns an error (CommonError) and empty slice of JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc jobStatusUC) GetByJobId(dto JobStatusDto) ([]JobStatus, error) {
+func (uc jobStatusUC) GetByJobId(dto dtoType.JobStatusDto) ([]JobStatus, error) {
 	return []JobStatus{}, nil
 }
 
@@ -52,6 +49,6 @@ func (uc jobStatusUC) GetByJobId(dto JobStatusDto) ([]JobStatus, error) {
 // Returns an error (CommonError) and empty slice of JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc jobStatusUC) GetByJobIdBusDt(dto JobStatusDto) ([]JobStatus, error) {
+func (uc jobStatusUC) GetByJobIdBusDt(dto dtoType.JobStatusDto) ([]JobStatus, error) {
 	return []JobStatus{}, nil
 }

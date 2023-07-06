@@ -3,5 +3,6 @@ go 1.21rc2
 use (
 	./cmd/gmt
 	./common
-	./jobStatus
+	./internal/jobStatus
+	./public
 )

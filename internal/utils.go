@@ -1,4 +1,4 @@
-package common
+package internal
 
 import (
 	"database/sql/driver"

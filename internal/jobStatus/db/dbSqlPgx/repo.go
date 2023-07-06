@@ -1,9 +1,12 @@
-package jobStatus
+package repo
 
 import (
-	"common"
 	"database/sql"
 	"time"
+
+	"go-slo/internal"
+	"go-slo/internal/jobStatus"
+	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
 type dbSqlPgRepo struct {
@@ -16,7 +19,7 @@ type dbSqlPgRepo struct {
 
 // NewDbSqlRepo creates a new dbSqlRepo object using the passed database handle.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
+func NewDbSqlPgRepo(db *sql.DB) *dbSqlPgRepo {
 	return &dbSqlPgRepo{
 		db: db,
 
@@ -38,12 +41,12 @@ func NewDbSqlPgRepo(db *sql.DB) JobStatusRepo {
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: no
-func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
+func (repo dbSqlPgRepo) Add(jobStatus jobStatus.JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
-	_, err := repo.db.Exec(repo.sqlInsert, repo.domainToDb(jobStatus)...)
+	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
 	if err != nil {
-		code := common.PgErrToCommon(err)
-		return common.NewCommonError(err, code, jobStatus)
+		code := internal.PgErrToCommon(err)
+		return internal.NewCommonError(err, code, jobStatus)
 	}
 	return nil
 }
@@ -51,17 +54,17 @@ func (repo dbSqlPgRepo) add(jobStatus JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: no
-func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
+func (repo dbSqlPgRepo) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
-		code := common.PgErrToCommon(err)
-		return []JobStatus{}, common.NewCommonError(err, code, map[string]any{"jobId": jobId})
+		code := internal.PgErrToCommon(err)
+		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId})
 	}
 	defer rows.Close()
 
-	data, err := repo.rowsToDomain(rows)
+	data, err := rowsToDomain(rows)
 	if err != nil {
-		return []JobStatus{}, common.WrapError(err)
+		return nil, internal.WrapError(err)
 	}
 	return data, nil
 }
@@ -69,17 +72,17 @@ func (repo dbSqlPgRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
+func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
-		code := common.PgErrToCommon(err)
-		return []JobStatus{}, common.NewCommonError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
+		code := internal.PgErrToCommon(err)
+		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
 	}
 	defer rows.Close()
 
-	data, err := repo.rowsToDomain(rows)
+	data, err := rowsToDomain(rows)
 	if err != nil {
-		return []JobStatus{}, common.WrapError(err)
+		return nil, internal.WrapError(err)
 	}
 	return data, nil
 }
@@ -88,14 +91,14 @@ func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Dat
 // If dbToDomain() fails to convert any row in the result set, it returns an empty slice and an error.
 //
 // Mutates receiver: no (doesn't use; receiver for namespace only)
-func (repo dbSqlPgRepo) rowsToDomain(rows *sql.Rows) ([]JobStatus, error) {
-	var result []JobStatus
+func rowsToDomain(rows *sql.Rows) ([]jobStatus.JobStatus, error) {
+	var result []jobStatus.JobStatus
 
 	for rows.Next() {
 
-		jobStatus, err := repo.dbToDomain(rows)
+		jobStatus, err := dbToDomain(rows)
 		if err != nil {
-			return []JobStatus{}, common.WrapError(err)
+			return nil, internal.WrapError(err)
 		}
 
 		result = append(result, jobStatus)
@@ -106,28 +109,28 @@ func (repo dbSqlPgRepo) rowsToDomain(rows *sql.Rows) ([]JobStatus, error) {
 // dbToDomain converts database job status data to a JobStatus struct by scanning rows for values and building JobStatus.
 //
 // Mutates receiver: no (doesn't use; receiver for namespace only)
-func (repo dbSqlPgRepo) dbToDomain(rows *sql.Rows) (JobStatus, error) {
+func dbToDomain(rows *sql.Rows) (jobStatus.JobStatus, error) {
 	var (
 		appId string
-		jobId JobIdType
-		jobSt JobStatusCodeType
+		jobId jobStatus.JobIdType
+		jobSt jobStatus.JobStatusCodeType
 		jobTs time.Time
-		busDt time.Time // database/sql will Scan to time.Time, not common.Date
+		busDt time.Time // database/sql will Scan to time.Time, not internal.Date
 		runId string
 		hstId string
 	)
 
 	err := rows.Scan(&appId, &jobId, &jobSt, &jobTs, &busDt, &runId, &hstId)
 	if err != nil {
-		return JobStatus{}, common.NewCommonError(err, common.ErrcdRepoScan, rows)
+		return jobStatus.JobStatus{}, internal.NewCommonError(err, internal.ErrcdRepoScan, rows)
 	}
 
-	return newJobStatus(JobStatusDto{
+	return jobStatus.NewJobStatus(dtoType.JobStatusDto{
 		AppId: appId,
 		JobId: string(jobId),
 		JobSt: string(jobSt),
 		JobTs: jobTs,
-		BusDt: common.NewDateFromTime(busDt),
+		BusDt: internal.NewDateFromTime(busDt),
 		RunId: runId,
 		HstId: hstId,
 	})
@@ -139,13 +142,13 @@ func (repo dbSqlPgRepo) dbToDomain(rows *sql.Rows) (JobStatus, error) {
 // Expected order: ApplicationId, JobId, JobStatusCode, BusinessDate, RunId, HostId
 //
 // Mutates receiver: no (doesn't use; receiver for namespace only)
-func (db dbSqlPgRepo) domainToDb(jobStatus JobStatus) []any {
+func domainToDb(jobStatus jobStatus.JobStatus) []any {
 	return []any{
 		jobStatus.ApplicationId,
 		jobStatus.JobId,
 		jobStatus.JobStatusCode,
 		jobStatus.JobStatusTimestamp,
-		time.Time(jobStatus.BusinessDate),
+		jobStatus.BusinessDate.AsTime(),
 		jobStatus.RunId,
 		jobStatus.HostId,
 	}

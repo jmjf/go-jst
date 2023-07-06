@@ -1,23 +1,25 @@
-package jobStatus
+package repo
 
 import (
-	"common"
 	"sync"
+
+	"go-slo/internal"
+	"go-slo/internal/jobStatus"
 )
 
 type memoryRepo struct {
-	jobStatuses []JobStatus
+	jobStatuses []jobStatus.JobStatus
 	mut         sync.Mutex
 }
 
-func NewMemoryRepo(jobStatuses []JobStatus) JobStatusRepo {
+func NewMemoryRepo(jobStatuses []jobStatus.JobStatus) *memoryRepo {
 	return &memoryRepo{jobStatuses: jobStatuses}
 }
 
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: yes (mutex, data)
-func (repo *memoryRepo) add(jobStatus JobStatus) error {
+func (repo *memoryRepo) add(jobStatus jobStatus.JobStatus) error {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
@@ -28,11 +30,11 @@ func (repo *memoryRepo) add(jobStatus JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: yes (mutex)
-func (repo *memoryRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
+func (repo *memoryRepo) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
-	var result []JobStatus
+	var result []jobStatus.JobStatus
 	for _, jobStatus := range repo.jobStatuses {
 		if jobStatus.JobId == jobId {
 			result = append(result, jobStatus)
@@ -44,12 +46,12 @@ func (repo *memoryRepo) GetByJobId(jobId JobIdType) ([]JobStatus, error) {
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: yes (mutex)
-func (repo *memoryRepo) GetByJobIdBusinessDate(jobId JobIdType, busDt common.Date) ([]JobStatus, error) {
+func (repo *memoryRepo) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
 
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
-	var result []JobStatus
+	var result []jobStatus.JobStatus
 	for _, jobStatus := range repo.jobStatuses {
 		if jobStatus.JobId == jobId && jobStatus.BusinessDate == busDt {
 			result = append(result, jobStatus)

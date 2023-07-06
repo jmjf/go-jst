@@ -1,11 +1,13 @@
 package jobStatus
 
 import (
-	"common"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"go-slo/internal"
+	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
 type JobStatusCtrl interface {
@@ -36,13 +38,13 @@ func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *htt
 	// TODO: add in-message API version checking; requires a raw JSON structure separate from DTO
 
 	// for now, we can convert the input to a DTO directly
-	var dto JobStatusDto
+	var dto dtoType.JobStatusDto
 
 	err := decoder.Decode(&dto)
 	if err != nil {
 		//
-		logErr := common.NewCommonError(err, common.ErrcdJsonDecode, request.Body)
-		common.LogError(logger, "JSON Decode Error", logErr.Error(), logErr)
+		logErr := internal.NewCommonError(err, internal.ErrcdJsonDecode, request.Body)
+		internal.LogError(logger, "JSON Decode Error", logErr.Error(), logErr)
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -52,14 +54,14 @@ func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *htt
 	// call use case with DTO
 	result, err := jsc.useCase.Add(dto)
 	if err != nil {
-		logErr := common.WrapError(err)
+		logErr := internal.WrapError(err)
 		// Need to identify error type and get it for logging
-		var ce *common.CommonError
+		var ce *internal.CommonError
 		var responseStatus int
 
 		if errors.As(err, &ce) {
 			responseStatus = http.StatusBadRequest
-			common.LogError(logger, ce.Err.Error(), logErr.Error(), ce)
+			internal.LogError(logger, ce.Err.Error(), logErr.Error(), ce)
 		} else {
 			responseStatus = http.StatusInternalServerError
 			logger.Error("Unknown error type", "err", err)

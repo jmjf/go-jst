@@ -1,4 +1,4 @@
-package common
+package internal
 
 import (
 	"strings"
@@ -29,6 +29,13 @@ func NewDateFromTime(tm time.Time) Date {
 // Mutates receiver: no
 func (dt Date) String() string {
 	return time.Time(dt).Format(time.DateOnly)
+}
+
+// Date.AsTime() returns a Date as a time.Time.
+//
+// Mutates receiver: no
+func (dt Date) AsTime() time.Time {
+	return time.Time(dt)
 }
 
 // Date.UnmarshalJSON attempts to convert a JSON time to a Date.
