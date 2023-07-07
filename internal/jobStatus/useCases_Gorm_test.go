@@ -21,7 +21,7 @@ import (
 	gormLogger "gorm.io/gorm/logger"
 )
 
-func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusUC, dtoType.JobStatusDto, error) {
+func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusRepo, dtoType.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,6 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 	}
 
 	jsRepo := repo.NewGormPgRepo(gormDb)
-	uc := jobStatus.NewJobStatusUC(jsRepo)
 
 	busDt, err := internal.NewDate("2023-06-20")
 
@@ -56,7 +55,7 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 		HstId: "Host4",
 	}
 
-	return gormDb, db, mock, uc, dto, err
+	return gormDb, db, mock, jsRepo, dto, err
 }
 
 func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
@@ -135,18 +134,20 @@ func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			_, db, _, uc, dto, err := gormBeforeEach(t) // don't need db or mock
+			_, db, _, jsRepo, dto, err := gormBeforeEach(t) // don't need db or mock
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer db.Close()
+
+			uc := jobStatus.NewAddJobStatusUC(jsRepo)
 
 			// set the value of the field to test
 			tf := reflect.ValueOf(&dto).Elem().FieldByName(tt.testField)
 			tf.Set(reflect.ValueOf(tt.testValue))
 
 			// Act
-			got, err := uc.Add(dto)
+			got, err := uc.Execute(dto)
 
 			if err == nil {
 				t.Errorf("FAIL | Expected error %q, got: %+v", tt.wantErr, got)
@@ -199,11 +200,13 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			_, db, mock, uc, dto, err := gormBeforeEach(t)
+			_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer db.Close()
+
+			uc := jobStatus.NewAddJobStatusUC(jsRepo)
 
 			mock.ExpectBegin()
 			mock.ExpectExec(`INSERT INTO "JobStatus"`).
@@ -212,7 +215,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 			mock.ExpectRollback()
 
 			// Act
-			js, err := uc.Add(dto)
+			js, err := uc.Execute(dto)
 
 			// Assert
 			if err == nil {
@@ -237,11 +240,13 @@ func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 	// when data is good it returns a JobStatus
 
 	// Arrange
-	_, db, mock, uc, dto, err := gormBeforeEach(t)
+	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
+
+	uc := jobStatus.NewAddJobStatusUC(jsRepo)
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "JobStatus"`).
@@ -250,7 +255,7 @@ func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 	mock.ExpectCommit()
 
 	// Act
-	_, err = uc.Add(dto)
+	_, err = uc.Execute(dto)
 
 	// Assert
 	if err != nil {

@@ -5,23 +5,24 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-type jobStatusUC struct {
+// AddJobStatusUC holds a JobStatusRepo for it's Execute() method
+type AddJobStatusUC struct {
 	jobStatusRepo JobStatusRepo
 }
 
-// NewJobStatusUC creates and returns a jobStatusUc.
-func NewJobStatusUC(jsr JobStatusRepo) JobStatusUC {
-	return &jobStatusUC{
+// NewJobStatusUC creates and returns an AddJobStatusUC.
+func NewAddJobStatusUC(jsr JobStatusRepo) *AddJobStatusUC {
+	return &AddJobStatusUC{
 		jobStatusRepo: jsr,
 	}
 }
 
-// jobStatusUc.Add attempts to add a new job status to the data store.
+// AddJobStatusUC.Execute attempts to add a new job status to the data store.
 // Returns a JobStatus and nil error on success.
 // Returns an error (CommonError) and empty JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc jobStatusUC) Add(dto dtoType.JobStatusDto) (JobStatus, error) {
+func (uc AddJobStatusUC) Execute(dto dtoType.JobStatusDto) (JobStatus, error) {
 	jobStatus, err := NewJobStatus(dto)
 	if err != nil {
 		return JobStatus{}, internal.WrapError(err)
@@ -35,20 +36,22 @@ func (uc jobStatusUC) Add(dto dtoType.JobStatusDto) (JobStatus, error) {
 	return jobStatus, nil
 }
 
-// TODO: jobStatusUc.GetByJobId
-// Returns a slice of JobStatus and nil error on success.
-// Returns an error (CommonError) and empty slice of JobStatus on failure.
-//
-// Mutates receiver: no
-func (uc jobStatusUC) GetByJobId(dto dtoType.JobStatusDto) ([]JobStatus, error) {
-	return []JobStatus{}, nil
+type GetJobStatusByQueryUC struct {
+	jobStatusRepo JobStatusRepo
 }
 
-// TODO: jobStatusUc.GetByJobIdBusDt
+// NewGetJobStatusByQueryUC creates and returns a GetJobStatusByQueryUC
+func NewGetJobStatusByQueryUC(jsr JobStatusRepo) *GetJobStatusByQueryUC {
+	return &GetJobStatusByQueryUC{
+		jobStatusRepo: jsr,
+	}
+}
+
+// TODO: GetJobStatusByQueryUC.Execute finds job status data for a query (string).
 // Returns a slice of JobStatus and nil error on success.
 // Returns an error (CommonError) and empty slice of JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc jobStatusUC) GetByJobIdBusDt(dto dtoType.JobStatusDto) ([]JobStatus, error) {
+func (uc GetJobStatusByQueryUC) Execute(dto dtoType.JobStatusDto) ([]JobStatus, error) {
 	return []JobStatus{}, nil
 }

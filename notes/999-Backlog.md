@@ -42,6 +42,17 @@ Because I'm using a database library that requires met to write SQL statements a
 
 I want my test database mocks to check argument order so I'm sure the data that will be sent to the database is correct (don't cross column values).
 
+## Simplify tests if possible
+
+The tests for `database/sql` and `gorm` repos are almost identical. The differences are:
+
+* `gorm` wraps the query in a transaction, so `db-mock` setup must account for it.
+* `gorm` wants `defer db.Close()`.
+
+If I wrap a transaction around the `database/sql` queries, which is probably a good idea, I can make the test bodies identical except `gorm` calls `gormBeforeEach()` and `database/sql` calls `dbSqlPgxBeforeEach`.
+
+Can I somehow set the function the test uses in code so I don't need to duplicate test code?
+
 ## General
 
 ### DONE: Consider simplifying errors

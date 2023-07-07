@@ -17,12 +17,6 @@ type JobStatusRepo interface {
 	GetByJobIdBusinessDate(id JobIdType, businessDate internal.Date) ([]JobStatus, error)
 }
 
-type JobStatusUC interface {
-	Add(dto dtoType.JobStatusDto) (JobStatus, error)
-	GetByJobId(dto dtoType.JobStatusDto) ([]JobStatus, error)
-	GetByJobIdBusDt(dto dtoType.JobStatusDto) ([]JobStatus, error)
-}
-
 // I'm doing status these types the easy way for now.
 // If I want to have database table of job statuses, I could build a map[string]int and load it.
 // That's overkill for now, so keeping it simple.
