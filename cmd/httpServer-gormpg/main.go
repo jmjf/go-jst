@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"jobStatus"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
+
+	"go-slo/internal/jobStatus"
+	repo "go-slo/internal/jobStatus/db/gorm"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -22,7 +24,7 @@ const (
 )
 
 type routeHandler struct {
-	ctrl       jobStatus.JobStatusCtrl
+	ctrl       *jobStatus.AddJobStatusCtrl
 	baseLogger *slog.Logger
 }
 
@@ -31,7 +33,7 @@ func (rh routeHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 	if request.URL.Path == "/job-statuses" || request.URL.Path == "/job-statuses/" {
 		switch request.Method {
 		case http.MethodPost:
-			rh.ctrl.AddJobStatus(response, request, logger)
+			rh.ctrl.Execute(response, request, logger)
 		default:
 			logger.Error("Not Implemented")
 			response.WriteHeader(http.StatusNotImplemented)
@@ -80,14 +82,14 @@ func main() {
 	// gorm doesn't have a Close()
 
 	fmt.Println(" -- NewDbSqlRepo")
-	gormRepo := jobStatus.NewGormPgRepo(db)
+	gormRepo := repo.NewGormPgRepo(db)
 
-	fmt.Println(" -- NewJobStatusUC")
-	uc := jobStatus.NewJobStatusUC(gormRepo)
+	fmt.Println(" -- NewAddJobStatusUC")
+	uc := jobStatus.NewAddJobStatusUC(gormRepo)
 
-	fmt.Println(" -- NewJobStatusController")
+	fmt.Println(" -- NewAddJobStatusController")
 	rh := &routeHandler{
-		ctrl:       jobStatus.NewJobStatusCtrl(uc),
+		ctrl:       jobStatus.NewAddJobStatusCtrl(uc),
 		baseLogger: logger,
 	}
 

@@ -10,17 +10,13 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-type JobStatusCtrl interface {
-	AddJobStatus(response http.ResponseWriter, request *http.Request, logger *slog.Logger)
+type AddJobStatusCtrl struct {
+	useCase *AddJobStatusUC
 }
 
-type jobStatusCtrl struct {
-	useCase JobStatusUC
-}
-
-// NewJobStatusCtrl creates and returns a JobStatusCtrl
-func NewJobStatusCtrl(uc JobStatusUC) JobStatusCtrl {
-	return &jobStatusCtrl{
+// NewAddJobStatusCtrl creates and returns an AddJobStatusCtrl
+func NewAddJobStatusCtrl(uc *AddJobStatusUC) *AddJobStatusCtrl {
+	return &AddJobStatusCtrl{
 		useCase: uc,
 	}
 }
@@ -30,7 +26,7 @@ func NewJobStatusCtrl(uc JobStatusUC) JobStatusCtrl {
 // an appropriate HTTP status code.
 //
 // Mutates receiver: no
-func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *http.Request, logger *slog.Logger) {
+func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http.Request, logger *slog.Logger) {
 
 	// decode JSON into request data
 	decoder := json.NewDecoder(request.Body)
@@ -49,10 +45,10 @@ func (jsc jobStatusCtrl) AddJobStatus(response http.ResponseWriter, request *htt
 		return
 	}
 
-	logger.Debug("Call Add", "functionName", "jobStatusCtrl.AddJobStatus", "dto", dto)
+	logger.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "dto", dto)
 
 	// call use case with DTO
-	result, err := jsc.useCase.Add(dto)
+	result, err := ctrl.useCase.Execute(dto)
 	if err != nil {
 		logErr := internal.WrapError(err)
 		// Need to identify error type and get it for logging
