@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db/gorm"
+	repo "go-slo/internal/jobStatus/dbGorm"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

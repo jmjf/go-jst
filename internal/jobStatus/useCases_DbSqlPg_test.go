@@ -11,7 +11,7 @@ import (
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db/dbSqlPgx"
+	repo "go-slo/internal/jobStatus/dbSqlPgx"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"

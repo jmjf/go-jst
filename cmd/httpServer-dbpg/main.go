@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db/dbSqlPgx"
+	repo "go-slo/internal/jobStatus/dbSqlPgx"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
