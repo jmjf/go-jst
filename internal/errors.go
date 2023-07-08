@@ -66,6 +66,8 @@ var (
 
 // Primitive errors an error codes for repo errors
 var (
+	ErrRepoNoDsn           = errors.New("dsn is empty")
+	ErrcdRepoNoDsn         = "NoDsn"
 	ErrRepoScan            = errors.New("scan error")
 	ErrcdRepoScan          = "ScanError"
 	ErrRepoDupeRow         = errors.New("duplicate row error")

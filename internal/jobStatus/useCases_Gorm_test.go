@@ -41,7 +41,8 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 		panic(err)
 	}
 
-	jsRepo := repo.NewRepoDb(gormDb)
+	jsRepo := repo.NewRepoDb("")
+	jsRepo.DB = gormDb
 
 	busDt, err := internal.NewDate("2023-06-20")
 

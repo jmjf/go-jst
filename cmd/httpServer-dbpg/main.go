@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -65,19 +64,19 @@ func main() {
 	logger := newLogger()
 
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", userName, password, host, port, dbName)
-	fmt.Printf(" -- Connect to %s\n", pgUrl)
-	db, err := sql.Open("pgx", pgUrl)
+	fmt.Println(" -- NewRepoDb")
+	dbRepo := repo.NewRepoDb(pgUrl)
+
+	fmt.Println(" -- Open database connection")
+	err := dbRepo.Open()
 	if err != nil {
-		logger.Error("sql.Open failed", "err", err)
+		logger.Error("database connection failed", "err", err)
 		panic(err)
 	}
-	defer db.Close()
-
-	fmt.Println(" -- NewRepoDb")
-	dbSqlRepo := repo.NewRepoDb(db)
+	defer dbRepo.Close()
 
 	fmt.Println(" -- NewAddJobStatusUC")
-	uc := jobStatus.NewAddJobStatusUC(dbSqlRepo)
+	uc := jobStatus.NewAddJobStatusUC(dbRepo)
 
 	fmt.Println(" -- NewAddJobStatusController")
 	rh := &routeHandler{

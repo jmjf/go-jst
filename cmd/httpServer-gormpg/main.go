@@ -5,14 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 
 	"go-slo/internal/jobStatus"
 	repo "go-slo/internal/jobStatus/dbGorm"
-
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	gormLogger "gorm.io/gorm/logger"
 )
 
 const (
@@ -67,25 +62,20 @@ func main() {
 	logger := newLogger()
 
 	pgDsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
-	fmt.Printf(" -- Connect to %s\n", pgDsn)
-	db, err := gorm.Open(postgres.Open(pgDsn), &gorm.Config{
-		TranslateError: false, // get raw Postgres errors because they're more expressive
-		Logger:         gormLogger.Default.LogMode(gormLogger.Silent),
-		// Logger: logger, // doesn't work because gorm's logger interface is different; will need to translate
-		NowFunc: func() time.Time { return time.Now().UTC() }, // ensure times are UTC
-		// PrepareStmt: true // cache prepared statements for SQL; need to investigate how this works before turning on
-	})
-	if err != nil {
-		logger.Error("gorm.Open failed", "err", err)
-		panic(err)
-	}
-	// gorm doesn't have a Close()
 
 	fmt.Println(" -- NewRepoDb")
-	gormRepo := repo.NewRepoDb(db)
+	dbRepo := repo.NewRepoDb(pgDsn)
+
+	fmt.Println(" -- Open database connection")
+	err := dbRepo.Open()
+	if err != nil {
+		logger.Error("database connection failed", "err", err)
+		panic(err)
+	}
+	defer dbRepo.Close()
 
 	fmt.Println(" -- NewAddJobStatusUC")
-	uc := jobStatus.NewAddJobStatusUC(gormRepo)
+	uc := jobStatus.NewAddJobStatusUC(dbRepo)
 
 	fmt.Println(" -- NewAddJobStatusController")
 	rh := &routeHandler{

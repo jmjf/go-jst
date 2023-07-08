@@ -16,6 +16,22 @@ func NewRepoDb(jobStatuses []jobStatus.JobStatus) *repoDb {
 	return &repoDb{jobStatuses: jobStatuses}
 }
 
+// Open is a no-op for dbInMem
+//
+// Mutates receiver: no
+func (repo *repoDb) Open(dsn string) error {
+	// in memory has nothing to open
+	return nil
+}
+
+// Close is a no-op for dbInMem
+//
+// Mutates receiver: no
+func (repo *repoDb) Close(dsn string) error {
+	// in memory has nothing to open
+	return nil
+}
+
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: yes (mutex, data)

@@ -10,18 +10,19 @@ import (
 )
 
 type repoDb struct {
-	db                        *sql.DB
+	DSN                       string
+	DB                        *sql.DB
 	sqlInsert                 string
 	sqlSelect                 string
 	sqlWhereJobId             string
 	sqlWhereJobIdBusinessDate string
 }
 
-// NewRepoDb creates a new database/ORM specific object using the passed database handle.
+// NewRepoDb creates a new database/ORM specific object using the passed DSN.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewRepoDb(db *sql.DB) *repoDb {
+func NewRepoDb(DSN string) *repoDb {
 	return &repoDb{
-		db: db,
+		DSN: DSN,
 
 		// The order of columns in the following statements is significant.
 		// The insert operation uses a set of values from dbToDomain, which assumes a specific order of columns.
@@ -38,12 +39,38 @@ func NewRepoDb(db *sql.DB) *repoDb {
 	}
 }
 
+// Open connects to the database described by the dsn set on the repo.
+//
+// Mutates receiver: yes (sets repo.DB)
+func (repo *repoDb) Open() error {
+	if repo.DSN == "" {
+		return internal.NewCommonError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
+	}
+
+	db, err := sql.Open("pgx", repo.DSN)
+	if err != nil {
+		return internal.NewCommonError(err, internal.ErrcdRepoConnException, nil)
+	}
+	repo.DB = db
+	return nil
+}
+
+// Close closes the repo's database connection
+//
+// Mutates receiver: no
+func (repo *repoDb) Close() error {
+	if repo.DB != nil {
+		return repo.DB.Close()
+	}
+	return nil
+}
+
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: no
-func (repo repoDb) Add(jobStatus jobStatus.JobStatus) error {
+func (repo *repoDb) Add(jobStatus jobStatus.JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
-	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
+	_, err := repo.DB.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
 		return internal.NewCommonError(err, code, jobStatus)
@@ -54,8 +81,8 @@ func (repo repoDb) Add(jobStatus jobStatus.JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: no
-func (repo repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
-	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
+func (repo *repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
+	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
 		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId})
@@ -72,8 +99,8 @@ func (repo repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus,
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
-	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
+func (repo *repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
 		code := internal.PgErrToCommon(err)
 		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
@@ -89,8 +116,6 @@ func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt inter
 
 // rowsToDomain converts a slice of database job status data to a slice of domain data by calling dbToDomain() for each item.
 // If dbToDomain() fails to convert any row in the result set, it returns an empty slice and an error.
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
 func rowsToDomain(rows *sql.Rows) ([]jobStatus.JobStatus, error) {
 	var result []jobStatus.JobStatus
 
@@ -107,8 +132,6 @@ func rowsToDomain(rows *sql.Rows) ([]jobStatus.JobStatus, error) {
 }
 
 // dbToDomain converts database job status data to a JobStatus struct by scanning rows for values and building JobStatus.
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
 func dbToDomain(rows *sql.Rows) (jobStatus.JobStatus, error) {
 	var (
 		appId string
@@ -140,8 +163,6 @@ func dbToDomain(rows *sql.Rows) (jobStatus.JobStatus, error) {
 // SQL statements that specify values must use the expected order.
 //
 // Expected order: ApplicationId, JobId, JobStatusCode, BusinessDate, RunId, HostId
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
 func domainToDb(jobStatus jobStatus.JobStatus) []any {
 	return []any{
 		jobStatus.ApplicationId,

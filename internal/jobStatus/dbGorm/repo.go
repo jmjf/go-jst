@@ -3,15 +3,18 @@ package repo
 import (
 	"time"
 
-	"gorm.io/gorm"
-
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
 	dtoType "go-slo/public/jobStatus/http/20230701"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 type repoDb struct {
-	db *gorm.DB
+	DSN string
+	DB  *gorm.DB
 }
 
 type GormPgJobStatusModel struct {
@@ -30,19 +33,58 @@ func (GormPgJobStatusModel) TableName() string {
 
 // NewRepoDb creates a new database/ORM specific object using the passed database handle.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewRepoDb(db *gorm.DB) *repoDb {
+func NewRepoDb(DSN string) *repoDb {
 	return &repoDb{
-		db: db,
+		DSN: DSN,
 	}
+}
+
+// Open connects to the database described by the dsn set on the repo.
+//
+// Mutates receiver: yes (sets repo.DB)
+func (repo *repoDb) Open() error {
+	if repo.DSN == "" {
+		return internal.NewCommonError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
+	}
+
+	db, err := gorm.Open(postgres.Open(repo.DSN), &gorm.Config{
+		TranslateError: false, // get raw Postgres errors because they're more expressive
+		Logger:         gormLogger.Default.LogMode(gormLogger.Silent),
+		// Logger: logger, // doesn't work because gorm's logger interface is different; will need to translate
+		NowFunc: func() time.Time { return time.Now().UTC() }, // ensure times are UTC
+		// PrepareStmt: true // cache prepared statements for SQL; need to investigate how this works before turning on
+	})
+	if err != nil {
+		return internal.NewCommonError(err, internal.ErrcdRepoConnException, nil)
+	}
+	repo.DB = db
+	return nil
+}
+
+// Close closes the repo's database connection
+//
+// Mutates receiver: no
+func (repo *repoDb) Close() error {
+	// gorm uses a connection pool, so doesn't have a direct Close()
+	// get the sql.DB it's using and close it because I'm opening pools per repo
+	// need to think about how much sense that makes
+	if repo.DB != nil {
+		sqlDB, err := repo.DB.DB()
+		if err != nil {
+			return internal.NewCommonError(err, internal.PgErrToCommon((err)), nil)
+		}
+		return sqlDB.Close()
+	}
+	return nil
 }
 
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: no
-func (repo repoDb) Add(jobStatus jobStatus.JobStatus) error {
+func (repo *repoDb) Add(jobStatus jobStatus.JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	dbData := domainToDb(jobStatus)
-	result := repo.db.Create(&dbData)
+	result := repo.DB.Create(&dbData)
 
 	if result.Error != nil {
 		code := internal.PgErrToCommon(result.Error)
@@ -55,12 +97,12 @@ func (repo repoDb) Add(jobStatus jobStatus.JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: no
-func (repo repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
+func (repo *repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	var dbStatuses []GormPgJobStatusModel
 	whereMap := map[string]string{"jobId": string(jobId)}
 
 	// Use named argument to avoid questions about tags
-	result := repo.db.Where("JobId = @jobId", whereMap).Find(&dbStatuses)
+	result := repo.DB.Where("JobId = @jobId", whereMap).Find(&dbStatuses)
 
 	if result.Error != nil {
 		code := internal.PgErrToCommon(result.Error)
@@ -77,7 +119,7 @@ func (repo repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus,
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+func (repo *repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
 	var dbStatuses []GormPgJobStatusModel
 	whereMap := map[string]any{
 		"jobId": jobId,
@@ -85,7 +127,7 @@ func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt inter
 	}
 
 	// Use named argument to avoid questions about tags
-	result := repo.db.Where("JobId = @jobId and BusinessDate = @busDt", whereMap).Find(&dbStatuses)
+	result := repo.DB.Where("JobId = @jobId and BusinessDate = @busDt", whereMap).Find(&dbStatuses)
 
 	if result.Error != nil {
 		code := internal.PgErrToCommon(result.Error)
@@ -100,8 +142,6 @@ func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt inter
 }
 
 // domainToGormPg converts a JobStatus to a GormJobStatusModel
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
 func domainToDb(jobStatus jobStatus.JobStatus) GormPgJobStatusModel {
 	return GormPgJobStatusModel{
 		ApplicationId:      jobStatus.ApplicationId,
@@ -116,8 +156,6 @@ func domainToDb(jobStatus jobStatus.JobStatus) GormPgJobStatusModel {
 
 // rowsToDomain converts a slice of database job status data to a slice of domain data by calling dbToDomain() for each item.
 // If dbToDomain() fails to convert any row in the result set, it returns an empty slice and an error.
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
 func rowsToDomain(dbStatuses []GormPgJobStatusModel) ([]jobStatus.JobStatus, error) {
 	var result []jobStatus.JobStatus
 
@@ -134,8 +172,6 @@ func rowsToDomain(dbStatuses []GormPgJobStatusModel) ([]jobStatus.JobStatus, err
 }
 
 // dbToDomain converts one database job status to a JobStatus by calling newJobStatus().
-//
-// Mutates receiver: no (doesn't use; receiver for namespace only)
 func dbToDomain(dbStatus GormPgJobStatusModel) (jobStatus.JobStatus, error) {
 	return jobStatus.NewJobStatus(dtoType.JobStatusDto{
 		AppId: dbStatus.ApplicationId,
