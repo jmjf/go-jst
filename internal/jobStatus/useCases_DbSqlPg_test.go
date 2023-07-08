@@ -24,7 +24,7 @@ func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobSta
 		t.Fatal(err)
 	}
 
-	jsRepo := repo.NewDbSqlPgRepo(db)
+	jsRepo := repo.NewRepoDb(db)
 
 	busDt, err := internal.NewDate("2023-06-20")
 

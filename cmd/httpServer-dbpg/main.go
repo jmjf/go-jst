@@ -73,8 +73,8 @@ func main() {
 	}
 	defer db.Close()
 
-	fmt.Println(" -- NewDbSqlRepo")
-	dbSqlRepo := repo.NewDbSqlPgRepo(db)
+	fmt.Println(" -- NewRepoDb")
+	dbSqlRepo := repo.NewRepoDb(db)
 
 	fmt.Println(" -- NewAddJobStatusUC")
 	uc := jobStatus.NewAddJobStatusUC(dbSqlRepo)

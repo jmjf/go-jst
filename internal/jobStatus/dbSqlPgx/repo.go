@@ -9,7 +9,7 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-type dbSqlPgRepo struct {
+type repoDb struct {
 	db                        *sql.DB
 	sqlInsert                 string
 	sqlSelect                 string
@@ -17,10 +17,10 @@ type dbSqlPgRepo struct {
 	sqlWhereJobIdBusinessDate string
 }
 
-// NewDbSqlRepo creates a new dbSqlRepo object using the passed database handle.
+// NewRepoDb creates a new database/ORM specific object using the passed database handle.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewDbSqlPgRepo(db *sql.DB) *dbSqlPgRepo {
-	return &dbSqlPgRepo{
+func NewRepoDb(db *sql.DB) *repoDb {
+	return &repoDb{
 		db: db,
 
 		// The order of columns in the following statements is significant.
@@ -41,7 +41,7 @@ func NewDbSqlPgRepo(db *sql.DB) *dbSqlPgRepo {
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: no
-func (repo dbSqlPgRepo) Add(jobStatus jobStatus.JobStatus) error {
+func (repo repoDb) Add(jobStatus jobStatus.JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	_, err := repo.db.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
 	if err != nil {
@@ -54,7 +54,7 @@ func (repo dbSqlPgRepo) Add(jobStatus jobStatus.JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: no
-func (repo dbSqlPgRepo) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
+func (repo repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
@@ -72,7 +72,7 @@ func (repo dbSqlPgRepo) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobSt
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo dbSqlPgRepo) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
 	rows, err := repo.db.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
 	if err != nil {
 		code := internal.PgErrToCommon(err)

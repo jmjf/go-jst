@@ -81,8 +81,8 @@ func main() {
 	}
 	// gorm doesn't have a Close()
 
-	fmt.Println(" -- NewDbSqlRepo")
-	gormRepo := repo.NewGormPgRepo(db)
+	fmt.Println(" -- NewRepoDb")
+	gormRepo := repo.NewRepoDb(db)
 
 	fmt.Println(" -- NewAddJobStatusUC")
 	uc := jobStatus.NewAddJobStatusUC(gormRepo)

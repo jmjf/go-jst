@@ -10,7 +10,7 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-type gormPgRepo struct {
+type repoDb struct {
 	db *gorm.DB
 }
 
@@ -28,10 +28,10 @@ func (GormPgJobStatusModel) TableName() string {
 	return "JobStatus"
 }
 
-// NewGormPgRepo creates a new dbSqlRepo object using the passed database handle.
+// NewRepoDb creates a new database/ORM specific object using the passed database handle.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewGormPgRepo(db *gorm.DB) *gormPgRepo {
-	return &gormPgRepo{
+func NewRepoDb(db *gorm.DB) *repoDb {
+	return &repoDb{
 		db: db,
 	}
 }
@@ -39,7 +39,7 @@ func NewGormPgRepo(db *gorm.DB) *gormPgRepo {
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: no
-func (repo gormPgRepo) Add(jobStatus jobStatus.JobStatus) error {
+func (repo repoDb) Add(jobStatus jobStatus.JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	dbData := domainToDb(jobStatus)
 	result := repo.db.Create(&dbData)
@@ -55,7 +55,7 @@ func (repo gormPgRepo) Add(jobStatus jobStatus.JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: no
-func (repo gormPgRepo) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
+func (repo repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	var dbStatuses []GormPgJobStatusModel
 	whereMap := map[string]string{"jobId": string(jobId)}
 
@@ -77,7 +77,7 @@ func (repo gormPgRepo) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobSta
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo gormPgRepo) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+func (repo repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
 	var dbStatuses []GormPgJobStatusModel
 	whereMap := map[string]any{
 		"jobId": jobId,
