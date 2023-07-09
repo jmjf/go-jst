@@ -5,13 +5,13 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-// AddJobStatusUC holds a JobStatusRepo for it's Execute() method
+// AddJobStatusUC holds a Repo for it's Execute() method
 type AddJobStatusUC struct {
-	jobStatusRepo JobStatusRepo
+	jobStatusRepo Repo
 }
 
 // NewJobStatusUC creates and returns an AddJobStatusUC.
-func NewAddJobStatusUC(jsr JobStatusRepo) *AddJobStatusUC {
+func NewAddJobStatusUC(jsr Repo) *AddJobStatusUC {
 	return &AddJobStatusUC{
 		jobStatusRepo: jsr,
 	}
@@ -37,11 +37,11 @@ func (uc AddJobStatusUC) Execute(dto dtoType.JobStatusDto) (JobStatus, error) {
 }
 
 type GetJobStatusByQueryUC struct {
-	jobStatusRepo JobStatusRepo
+	jobStatusRepo Repo
 }
 
 // NewGetJobStatusByQueryUC creates and returns a GetJobStatusByQueryUC
-func NewGetJobStatusByQueryUC(jsr JobStatusRepo) *GetJobStatusByQueryUC {
+func NewGetJobStatusByQueryUC(jsr Repo) *GetJobStatusByQueryUC {
 	return &GetJobStatusByQueryUC{
 		jobStatusRepo: jsr,
 	}

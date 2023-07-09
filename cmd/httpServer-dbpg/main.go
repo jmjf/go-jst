@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/dbSqlPgx"
+	repo "go-slo/internal/jobStatus/db_sqlpgx"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -65,7 +65,7 @@ func main() {
 
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", userName, password, host, port, dbName)
 	fmt.Println(" -- NewRepoDb")
-	dbRepo := repo.NewRepoDb(pgUrl)
+	dbRepo := repo.NewRepoDB(pgUrl)
 
 	fmt.Println(" -- Open database connection")
 	err := dbRepo.Open()

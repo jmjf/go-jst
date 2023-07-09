@@ -7,19 +7,19 @@ import (
 	"go-slo/internal/jobStatus"
 )
 
-type repoDb struct {
+type repoDB struct {
 	jobStatuses []jobStatus.JobStatus
 	mut         sync.Mutex
 }
 
-func NewRepoDb(jobStatuses []jobStatus.JobStatus) *repoDb {
-	return &repoDb{jobStatuses: jobStatuses}
+func NewRepoDb(jobStatuses []jobStatus.JobStatus) *repoDB {
+	return &repoDB{jobStatuses: jobStatuses}
 }
 
 // Open is a no-op for dbInMem
 //
 // Mutates receiver: no
-func (repo *repoDb) Open(dsn string) error {
+func (repo *repoDB) Open() error {
 	// in memory has nothing to open
 	return nil
 }
@@ -27,7 +27,7 @@ func (repo *repoDb) Open(dsn string) error {
 // Close is a no-op for dbInMem
 //
 // Mutates receiver: no
-func (repo *repoDb) Close(dsn string) error {
+func (repo *repoDB) Close() error {
 	// in memory has nothing to open
 	return nil
 }
@@ -35,7 +35,7 @@ func (repo *repoDb) Close(dsn string) error {
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: yes (mutex, data)
-func (repo *repoDb) add(jobStatus jobStatus.JobStatus) error {
+func (repo *repoDB) add(jobStatus jobStatus.JobStatus) error {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
@@ -46,14 +46,14 @@ func (repo *repoDb) add(jobStatus jobStatus.JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: yes (mutex)
-func (repo *repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
+func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
 	var result []jobStatus.JobStatus
-	for _, jobStatus := range repo.jobStatuses {
-		if jobStatus.JobId == jobId {
-			result = append(result, jobStatus)
+	for _, js := range repo.jobStatuses {
+		if js.JobId == jobId {
+			result = append(result, js)
 		}
 	}
 	return result, nil
@@ -62,15 +62,15 @@ func (repo *repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: yes (mutex)
-func (repo *repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+func (repo *repoDB) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
 
 	repo.mut.Lock()
 	defer repo.mut.Unlock()
 
 	var result []jobStatus.JobStatus
-	for _, jobStatus := range repo.jobStatuses {
-		if jobStatus.JobId == jobId && jobStatus.BusinessDate == busDt {
-			result = append(result, jobStatus)
+	for _, js := range repo.jobStatuses {
+		if js.JobId == jobId && js.BusinessDate == busDt {
+			result = append(result, js)
 		}
 	}
 	return result, nil

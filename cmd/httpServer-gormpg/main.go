@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/dbGorm"
+	repo "go-slo/internal/jobStatus/db_gormpg"
 )
 
 const (
@@ -64,7 +64,7 @@ func main() {
 	pgDsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
 
 	fmt.Println(" -- NewRepoDb")
-	dbRepo := repo.NewRepoDb(pgDsn)
+	dbRepo := repo.NewRepoDB(pgDsn)
 
 	fmt.Println(" -- Open database connection")
 	err := dbRepo.Open()

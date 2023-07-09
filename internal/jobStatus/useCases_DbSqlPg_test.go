@@ -11,20 +11,20 @@ import (
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/dbSqlPgx"
+	repo "go-slo/internal/jobStatus/db_sqlpgx"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusRepo, dtoType.JobStatusDto, error) {
+func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.Repo, dtoType.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jsRepo := repo.NewRepoDb("")
+	jsRepo := repo.NewRepoDB("")
 	jsRepo.DB = db
 
 	busDt, err := internal.NewDate("2023-06-20")
@@ -32,7 +32,7 @@ func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.JobSta
 	dto := dtoType.JobStatusDto{
 		AppId: "App1",
 		JobId: "Job2",
-		JobSt: string(jobStatus.JobStatus_START),
+		JobSt: string(jobStatus.JobStart),
 		JobTs: internal.TruncateTimeToMs(time.Now()),
 		BusDt: busDt,
 		RunId: "Run3",

@@ -2,6 +2,8 @@ package jobStatus
 
 import (
 	"fmt"
+	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -10,11 +12,15 @@ import (
 )
 
 // interfaces used in jobStatus and subpackages
-type JobStatusRepo interface {
+type Repo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
 	Add(jobStatus JobStatus) error
 	GetByJobId(id JobIdType) ([]JobStatus, error)
 	GetByJobIdBusinessDate(id JobIdType, businessDate internal.Date) ([]JobStatus, error)
+}
+
+type Controller interface {
+	Execute(response http.ResponseWriter, request *http.Request, logger *slog.Logger)
 }
 
 // I'm doing status these types the easy way for now.
@@ -24,15 +30,15 @@ type JobStatusCodeType string
 type JobIdType string
 
 const (
-	JobStatus_INVALID JobStatusCodeType = "INVALID"
-	JobStatus_START   JobStatusCodeType = "START"
-	JobStatus_SUCCEED JobStatusCodeType = "SUCCEED"
-	JobStatus_FAIL    JobStatusCodeType = "FAIL"
+	InvalidStatus JobStatusCodeType = "INVALID"
+	JobStart      JobStatusCodeType = "START"
+	JobSucceed    JobStatusCodeType = "SUCCEED"
+	JobFail       JobStatusCodeType = "FAIL"
 )
 
 // Use validJobStatusCodes to ensure a value is a valid job status; update if job status consts change.
 // INVALID is not a valid job status code, but it's defined for easy, safe checks for invalid.
-var validJobStatusCodes = []JobStatusCodeType{JobStatus_START, JobStatus_SUCCEED, JobStatus_FAIL}
+var validJobStatusCodes = []JobStatusCodeType{JobStart, JobSucceed, JobFail}
 
 type JobStatus struct {
 	ApplicationId      string            `json:"applicationId"`
@@ -55,7 +61,7 @@ func NewJobStatus(dto dtoType.JobStatusDto) (JobStatus, error) {
 	}
 
 	// dto.isUsable() will return an error if the job status code isn't valid
-	// so, here, dto.jobStatusCode() will return a valid value (not JobStatus_INVALID).
+	// so, here, dto.jobStatusCode() will return a valid value (not InvalidStatus).
 	return JobStatus{
 		ApplicationId:      dto.AppId,
 		JobId:              JobIdType(dto.JobId),
@@ -70,8 +76,6 @@ func NewJobStatus(dto dtoType.JobStatusDto) (JobStatus, error) {
 // isUsable checks data on the DTO to ensure it can be used to create a JobStatus.
 // It returns an array of errors describing all data problems.
 // If len(errs) == 0, the DTO is good.
-//
-// Mutates receiver: no
 func isDtoUsable(dto dtoType.JobStatusDto) []error {
 	errs := []error{}
 	now := time.Now()
@@ -84,7 +88,7 @@ func isDtoUsable(dto dtoType.JobStatusDto) []error {
 		errs = append(errs, fmt.Errorf("invalid JobId |%s|", dto.JobId))
 	}
 
-	if len(dto.JobSt) == 0 || jobStatusCode(dto.JobSt) == JobStatus_INVALID {
+	if len(dto.JobSt) == 0 || jobStatusCode(dto.JobSt) == InvalidStatus {
 		errs = append(errs, fmt.Errorf("invalid JobStatusCode |%s|", dto.JobSt))
 	}
 
@@ -116,14 +120,12 @@ func isDtoUsable(dto dtoType.JobStatusDto) []error {
 }
 
 // jobStatusCode returns the job status code if code is in the list of valid job status codes.
-// If code is not a valid job status code, it returns JobStatus_INVALID.
-//
-// Mutates receiver: no
+// If code is not a valid job status code, it returns InvalidStatus.
 func jobStatusCode(code string) JobStatusCodeType {
 	for _, jsc := range validJobStatusCodes {
 		if string(jsc) == strings.ToUpper(code) {
 			return jsc
 		}
 	}
-	return JobStatus_INVALID
+	return InvalidStatus
 }

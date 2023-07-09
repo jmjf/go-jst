@@ -11,7 +11,7 @@ import (
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/dbGorm"
+	repo "go-slo/internal/jobStatus/db_gormpg"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -21,7 +21,7 @@ import (
 	gormLogger "gorm.io/gorm/logger"
 )
 
-func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.JobStatusRepo, dtoType.JobStatusDto, error) {
+func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.Repo, dtoType.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +41,7 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 		panic(err)
 	}
 
-	jsRepo := repo.NewRepoDb("")
+	jsRepo := repo.NewRepoDB("")
 	jsRepo.DB = gormDb
 
 	busDt, err := internal.NewDate("2023-06-20")
@@ -49,7 +49,7 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 	dto := dtoType.JobStatusDto{
 		AppId: "App1",
 		JobId: "Job2",
-		JobSt: string(jobStatus.JobStatus_START),
+		JobSt: string(jobStatus.JobStart),
 		JobTs: internal.TruncateTimeToMs(time.Now()),
 		BusDt: busDt,
 		RunId: "Run3",

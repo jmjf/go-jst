@@ -9,19 +9,19 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-type repoDb struct {
-	DSN                       string
-	DB                        *sql.DB
-	sqlInsert                 string
-	sqlSelect                 string
-	sqlWhereJobId             string
-	sqlWhereJobIdBusinessDate string
+type repoDB struct {
+	DSN                string
+	DB                 *sql.DB
+	sqlInsert          string
+	sqlSelect          string
+	sqlWhereJobId      string
+	sqlWhereJobIdBusDt string
 }
 
 // NewRepoDb creates a new database/ORM specific object using the passed DSN.
 // Passing the handle lets it be setup during application startup and shared with other repos.
-func NewRepoDb(DSN string) *repoDb {
-	return &repoDb{
+func NewRepoDB(DSN string) *repoDB {
+	return &repoDB{
 		DSN: DSN,
 
 		// The order of columns in the following statements is significant.
@@ -33,16 +33,16 @@ func NewRepoDb(DSN string) *repoDb {
 			INSERT INTO "JobStatus" ("ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId")
 			VALUES($1, $2, $3, $4, $5, $6, $7)
 		`,
-		sqlSelect:                 `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
-		sqlWhereJobId:             `WHERE "JobId" = $1`,
-		sqlWhereJobIdBusinessDate: `WHERE "JobId" = $1 AND "BusinessDate" = $2`,
+		sqlSelect:          `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
+		sqlWhereJobId:      `WHERE "JobId" = $1`,
+		sqlWhereJobIdBusDt: `WHERE "JobId" = $1 AND "BusinessDate" = $2`,
 	}
 }
 
 // Open connects to the database described by the dsn set on the repo.
 //
 // Mutates receiver: yes (sets repo.DB)
-func (repo *repoDb) Open() error {
+func (repo *repoDB) Open() error {
 	if repo.DSN == "" {
 		return internal.NewCommonError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
 	}
@@ -58,7 +58,7 @@ func (repo *repoDb) Open() error {
 // Close closes the repo's database connection
 //
 // Mutates receiver: no
-func (repo *repoDb) Close() error {
+func (repo *repoDB) Close() error {
 	if repo.DB != nil {
 		return repo.DB.Close()
 	}
@@ -68,7 +68,7 @@ func (repo *repoDb) Close() error {
 // add inserts a JobStatus into the database.
 //
 // Mutates receiver: no
-func (repo *repoDb) Add(jobStatus jobStatus.JobStatus) error {
+func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 	// we only care that it succeeds, not looking for a return, so use Exec()
 	_, err := repo.DB.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
 	if err != nil {
@@ -81,7 +81,7 @@ func (repo *repoDb) Add(jobStatus jobStatus.JobStatus) error {
 // GetByJobId retrieves JobStatus structs for a specific job id.
 //
 // Mutates receiver: no
-func (repo *repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
+func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
 	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
@@ -99,8 +99,8 @@ func (repo *repoDb) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus
 // GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo *repoDb) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
-	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusinessDate, jobId, time.Time(busDt))
+func (repo *repoDB) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusDt, jobId, time.Time(busDt))
 	if err != nil {
 		code := internal.PgErrToCommon(err)
 		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
