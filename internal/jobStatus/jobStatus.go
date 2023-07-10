@@ -17,6 +17,7 @@ type Repo interface {
 	Add(jobStatus JobStatus) error
 	GetByJobId(id JobIdType) ([]JobStatus, error)
 	GetByJobIdBusinessDate(id JobIdType, businessDate internal.Date) ([]JobStatus, error)
+	Close() error
 }
 
 type Controller interface {

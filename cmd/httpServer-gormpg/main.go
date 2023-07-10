@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db_gormpg"
+	modinit "go-slo/internal/jobStatus/infra/gormpg"
 )
 
 const (
@@ -61,25 +61,18 @@ func newLogger() *slog.Logger {
 func main() {
 	logger := newLogger()
 
-	pgDsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
+	pgDSN := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
 
-	fmt.Println(" -- NewRepoDb")
-	dbRepo := repo.NewRepoDB(pgDsn)
-
-	fmt.Println(" -- Open database connection")
-	err := dbRepo.Open()
+	dbRepo, _, ctrl, err := modinit.Init(pgDSN, logger)
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
 		panic(err)
 	}
 	defer dbRepo.Close()
 
-	fmt.Println(" -- NewAddJobStatusUC")
-	uc := jobStatus.NewAddJobStatusUC(dbRepo)
-
 	fmt.Println(" -- NewAddJobStatusController")
 	rh := &routeHandler{
-		ctrl:       jobStatus.NewAddJobStatusCtrl(uc),
+		ctrl:       ctrl,
 		baseLogger: logger,
 	}
 

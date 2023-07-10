@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db_sqlpgx"
+	modinit "go-slo/internal/jobStatus/infra/dbpg"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -64,23 +64,15 @@ func main() {
 	logger := newLogger()
 
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", userName, password, host, port, dbName)
-	fmt.Println(" -- NewRepoDb")
-	dbRepo := repo.NewRepoDB(pgUrl)
-
-	fmt.Println(" -- Open database connection")
-	err := dbRepo.Open()
+	dbRepo, _, ctrl, err := modinit.Init(pgUrl, logger)
 	if err != nil {
-		logger.Error("database connection failed", "err", err)
+		logger.Error("init failed", "err", err)
 		panic(err)
 	}
 	defer dbRepo.Close()
 
-	fmt.Println(" -- NewAddJobStatusUC")
-	uc := jobStatus.NewAddJobStatusUC(dbRepo)
-
-	fmt.Println(" -- NewAddJobStatusController")
 	rh := &routeHandler{
-		ctrl:       jobStatus.NewAddJobStatusCtrl(uc),
+		ctrl:       ctrl,
 		baseLogger: logger,
 	}
 
