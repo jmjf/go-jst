@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"go-slo/internal/jobStatus"
+	jshttp "go-slo/internal/jobStatus/http"
 	modinit "go-slo/internal/jobStatus/infra/gormpg"
 )
 
@@ -18,24 +18,11 @@ const (
 	dbName   = "go-slo"
 )
 
-type routeHandler struct {
-	ctrl       *jobStatus.AddJobStatusCtrl
-	baseLogger *slog.Logger
-}
-
-func (rh routeHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	logger := rh.baseLogger.With("route", request.URL.Path, "method", request.Method)
-	if request.URL.Path == "/job-statuses" || request.URL.Path == "/job-statuses/" {
-		switch request.Method {
-		case http.MethodPost:
-			rh.ctrl.Execute(response, request, logger)
-		default:
-			logger.Error("Not Implemented")
-			response.WriteHeader(http.StatusNotImplemented)
-		}
-	} else {
-		logger.Error("Unknown Route")
-	}
+func logHandler(rootLogger *slog.Logger) http.HandlerFunc {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		logger := rootLogger.With("route", req.URL.Path, "method", req.Method)
+		logger.Info("received", "urlRawPath", req.URL.RawPath, "urlString", req.URL.String())
+	})
 }
 
 func newLogger() *slog.Logger {
@@ -63,24 +50,22 @@ func main() {
 
 	pgDSN := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
 
-	dbRepo, _, ctrl, err := modinit.Init(pgDSN, logger)
+	dbRepo, _, addCtrl, err := modinit.Init(pgDSN, logger)
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
 		panic(err)
 	}
 	defer dbRepo.Close()
 
-	fmt.Println(" -- NewAddJobStatusController")
-	rh := &routeHandler{
-		ctrl:       ctrl,
-		baseLogger: logger,
-	}
+	fmt.Println(" -- build mux")
+	// apiMux := http.NewServeMux()
+	subMux := http.NewServeMux()
 
-	fmt.Println(" -- add routes")
-	http.Handle("/job-statuses", rh)
-	http.Handle("/job-statuses/", rh)
+	subMux.Handle("/api/job-statuses", jshttp.Handler(logger, addCtrl))
+	subMux.Handle("/api/job-statuses/", jshttp.Handler(logger, addCtrl))
+	subMux.Handle("/", logHandler(logger))
 
 	fmt.Println(" -- start server")
-	http.ListenAndServe(":9201", nil)
+	http.ListenAndServe(":9201", subMux)
 
 }
