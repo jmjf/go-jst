@@ -8,6 +8,7 @@ import (
 
 	jshttp "go-slo/internal/jobStatus/http"
 	modinit "go-slo/internal/jobStatus/infra/dbpg"
+	"go-slo/lib/middleware"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -20,14 +21,14 @@ const (
 	dbName   = "go-slo"
 )
 
-func logHandler(rootLogger *slog.Logger) http.HandlerFunc {
+func logHandler(rootLogger *slog.Logger, tag string) http.HandlerFunc {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		logger := rootLogger.With("route", req.URL.Path, "method", req.Method)
+		logger := rootLogger.With("tag", tag, "route", req.URL.Path, "method", req.Method)
 		logger.Info("received", "urlRawPath", req.URL.RawPath, "urlString", req.URL.String())
 	})
 }
 
-func newLogger() *slog.Logger {
+func newLogger(appName string, svcName string) *slog.Logger {
 	handlerOpts := slog.HandlerOptions{
 		AddSource: false,
 		Level:     slog.LevelInfo, // TODO: get from env or command line
@@ -36,19 +37,19 @@ func newLogger() *slog.Logger {
 
 	hostName, err := os.Hostname()
 	if err != nil {
-		fmt.Printf("ERROR getting hostname: %v\n", err)
+		fmt.Printf("ERROR getting hostname for logger: %v\n", err)
 	}
 
 	return slog.New(handler.WithAttrs([]slog.Attr{
-		slog.String("applicationName", "go-slo"),
-		slog.String("serviceName", "jobStatus"),
+		slog.String("applicationName", appName),
+		slog.String("serviceName", svcName),
 		slog.String("hostName", hostName),
 		slog.Int64("pid", int64(os.Getpid())),
 	}))
 }
 
 func main() {
-	logger := newLogger()
+	logger := newLogger("go-slo", "job-status")
 
 	fmt.Println(" -- initialize app")
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", userName, password, host, port, dbName)
@@ -60,13 +61,14 @@ func main() {
 	defer dbRepo.Close()
 
 	fmt.Println(" -- build mux")
-	// apiMux := http.NewServeMux()
-	subMux := http.NewServeMux()
+	apiMux := http.NewServeMux()
+	mux := http.NewServeMux()
 
-	subMux.Handle("/api/job-statuses", jshttp.Handler(logger, addCtrl))
-	subMux.Handle("/api/job-statuses/", jshttp.Handler(logger, addCtrl))
-	subMux.Handle("/", logHandler(logger))
+	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl))
+	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl))
+	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(apiMux)))
+	mux.Handle("/", logHandler(logger, "/"))
 
 	fmt.Println(" -- start server")
-	http.ListenAndServe(":9201", subMux)
+	http.ListenAndServe(":9201", mux)
 }

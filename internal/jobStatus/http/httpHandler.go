@@ -5,11 +5,13 @@ import (
 	"net/http"
 
 	"go-slo/internal/jobStatus"
+	"go-slo/lib/middleware"
 )
 
 func Handler(rootLogger *slog.Logger, ctrl jobStatus.Controller) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		logger := rootLogger.With("route", req.URL.Path, "method", req.Method)
+		requestId := middleware.GetRequestId(req.Context())
+		logger := rootLogger.With("route", req.URL.Path, "method", req.Method, "requestId", requestId)
 
 		switch {
 		// case req.Method == http.MethodGet && len(req.URL.Query()) == 0:
