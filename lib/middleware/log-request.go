@@ -2,12 +2,33 @@ package middleware
 
 import (
 	"log/slog"
+	"math"
 	"net/http"
 	"time"
 )
 
 // requestLogLevel controls the log level used to log requests and make controlling logging volume easier.
 const requestLogLevel = slog.LevelInfo
+
+type resWriter struct {
+	http.ResponseWriter
+	status        int
+	contentLength int
+}
+
+func (rw *resWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *resWriter) Write(data []byte) (int, error) {
+	rw.contentLength += len(data)
+	return rw.ResponseWriter.Write(data)
+}
+
+func wrapResponseWriter(res http.ResponseWriter) *resWriter {
+	return &resWriter{ResponseWriter: res, contentLength: 0}
+}
 
 // LogRequest logs information about received requests and their responses.
 func LogRequest(next http.Handler, logger *slog.Logger) http.Handler {
@@ -29,7 +50,9 @@ func LogRequest(next http.Handler, logger *slog.Logger) http.Handler {
 			"receivedTime", rcvTs.Format(time.RFC3339Nano),
 		)
 
-		next.ServeHTTP(res, req)
+		wrappedRes := wrapResponseWriter(res)
+
+		next.ServeHTTP(wrappedRes, req)
 
 		resTm := time.Since(rcvTs)
 		logger.Log(nil, requestLogLevel, "responding", "remoteAddr", req.RemoteAddr,
@@ -38,9 +61,9 @@ func LogRequest(next http.Handler, logger *slog.Logger) http.Handler {
 			"method", req.Method,
 			"receivedContentLength", req.ContentLength,
 			"receivedTime", rcvTs.Format(time.RFC3339Nano),
-			"responseMs", float64(resTm.Nanoseconds())/1000000.0,
-			// "statusCode", req.Response.StatusCode,
-			// "responseContentLength", req.Response.ContentLength,
+			"responseMs", math.Round(float64(resTm.Microseconds())/100.0)/10.0, // nnn.n ms
+			"statusCode", wrappedRes.status,
+			"responseContentLength", wrappedRes.contentLength,
 		)
 	})
 }
