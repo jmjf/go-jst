@@ -3,8 +3,11 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"go-slo/internal"
+
+	"github.com/jaevor/go-nanoid"
 )
 
 // requestIdKey is the reqeust id's name in the context.
@@ -14,21 +17,34 @@ const requestIdKey = "requestId"
 // If it can get the request id, it returns it.
 // If it cannot get the request id, it returns 0.
 // TODO: return an error if cannot get request id
-func GetRequestId(ctx context.Context) (uint64, error) {
-	reqId, ok := ctx.Value(requestIdKey).(uint64)
-
+func GetRequestId(ctx context.Context) (string, error) {
+	reqId, ok := ctx.Value(requestIdKey).(string)
 	if !ok {
-		return 0, internal.NewLoggableError(internal.ErrMWGetReqId, internal.ErrcdMWGetReqId, reqId)
+		return "", internal.NewLoggableError(internal.ErrMWGetReqId, internal.ErrcdMWGetReqId, reqId)
 	}
 	return reqId, nil
 }
 
 // AddRequestId returns a middleware handler that assigns a request id to the request's context.
 func AddRequestId(next http.Handler) http.Handler {
-	reqId := uint64(1)
+	var reqId uint64
+	useNano := true
+	generateNano, err := nanoid.Standard(21)
+	if err != nil {
+		useNano = false
+		reqId = uint64(1)
+		// TODO: log the error
+		// Low risk because, other than stdlib, the only error is if length is invalid--21 isn't.
+	}
+
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		ctx := context.WithValue(req.Context(), requestIdKey, reqId)
-		reqId++
+		var ctx context.Context
+		if useNano {
+			ctx = context.WithValue(req.Context(), requestIdKey, generateNano())
+		} else {
+			ctx = context.WithValue(req.Context(), requestIdKey, strconv.FormatUint(reqId, 36))
+			reqId++
+		}
 		next.ServeHTTP(res, req.WithContext(ctx))
 	})
 }
