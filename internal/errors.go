@@ -10,8 +10,8 @@ import (
 	"runtime"
 )
 
-// CommonError holds data we want from all errors to support logging
-type CommonError struct {
+// LoggableError holds data we want from all errors to support logging
+type LoggableError struct {
 	FileName string
 	FuncName string
 	LineNo   int
@@ -20,27 +20,27 @@ type CommonError struct {
 	Err      error
 }
 
-// CommonError.Error() returns a string representation of an error.
+// LoggableError.Error() returns a string representation of an error.
 //
 // Mutates receiver: no
-func (ce CommonError) Error() string {
+func (ce *LoggableError) Error() string {
 	return fmt.Sprintf("%s::%s::%d Code %s | %v", ce.FileName, ce.FuncName, ce.LineNo, ce.Code, ce.Err)
 }
 
-// CommonError.Unwrap() returns the error contained within the error.
+// LoggableError.Unwrap() returns the error contained within the error.
 //
 // Mutates receiver: no
-func (ce CommonError) Unwrap() error {
+func (ce *LoggableError) Unwrap() error {
 	return ce.Err
 }
 
-// NewCommonError creates a CommonError. It uses runtime.Caller(1) to get information
+// NewLoggableError creates a LoggableError. It uses runtime.Caller(1) to get information
 // about the caller to include in the error structure, reducing call boilerplate.
-func NewCommonError(err error, code string, data any) *CommonError {
+func NewLoggableError(err error, code string, data any) *LoggableError {
 	// get information about the function that called this one
 	pc, file, line, ok := runtime.Caller(1)
 
-	newErr := CommonError{}
+	newErr := LoggableError{}
 	newErr.Code = code
 	newErr.Err = err
 	newErr.Data = data
@@ -102,7 +102,7 @@ func WrapError(err error) error {
 var isEmptyJson = regexp.MustCompile(`^[\[\],{}]+$`).MatchString
 
 // LogError logs an error message using, applying a common pattern.
-func LogError(logger *slog.Logger, msg string, callStack string, ce *CommonError) {
+func LogError(logger *slog.Logger, msg string, callStack string, ce *LoggableError) {
 	errData := ce.Data
 
 	// When ce.Data is an array of errors, json.Marshal() returns [{}].

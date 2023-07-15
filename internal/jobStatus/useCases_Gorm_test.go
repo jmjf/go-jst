@@ -155,7 +155,7 @@ func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				return
 			}
 
-			var de *internal.CommonError
+			var de *internal.LoggableError
 			if errors.As(err, &de) {
 				// get the first error from Data and call Error() on it to get a string
 				msg := de.Data.([]error)[0].Error()
@@ -223,7 +223,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 				t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
 				return
 			}
-			var re *internal.CommonError
+			var re *internal.LoggableError
 			if errors.As(err, &re) {
 				// fmt.Printf("re %+v", *re)
 				if re.Code != tt.expectErrCode {
@@ -232,7 +232,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 				// whether Code is wrong or not, we go the right type of error so we're done
 				return
 			}
-			t.Errorf("FAIL | Expected CommonError, got err: %v", err)
+			t.Errorf("FAIL | Expected LoggableError, got err: %v", err)
 		})
 	}
 }

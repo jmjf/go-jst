@@ -58,7 +58,7 @@ type JobStatus struct {
 func NewJobStatus(dto dtoType.JobStatusDto) (JobStatus, error) {
 	errs := isDtoUsable(dto)
 	if len(errs) > 0 {
-		return JobStatus{}, internal.NewCommonError(internal.ErrDomainProps, internal.ErrcdDomainProps, errs)
+		return JobStatus{}, internal.NewLoggableError(internal.ErrDomainProps, internal.ErrcdDomainProps, errs)
 	}
 
 	// dto.isUsable() will return an error if the job status code isn't valid

@@ -44,12 +44,12 @@ func NewRepoDB(DSN string) *repoDB {
 // Mutates receiver: yes (sets repo.DB)
 func (repo *repoDB) Open() error {
 	if repo.DSN == "" {
-		return internal.NewCommonError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
+		return internal.NewLoggableError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
 	}
 
 	db, err := sql.Open("pgx", repo.DSN)
 	if err != nil {
-		return internal.NewCommonError(err, internal.ErrcdRepoConnException, nil)
+		return internal.NewLoggableError(err, internal.ErrcdRepoConnException, nil)
 	}
 	repo.DB = db
 	return nil
@@ -73,7 +73,7 @@ func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 	_, err := repo.DB.Exec(repo.sqlInsert, domainToDb(jobStatus)...)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
-		return internal.NewCommonError(err, code, jobStatus)
+		return internal.NewLoggableError(err, code, jobStatus)
 	}
 	return nil
 }
@@ -85,7 +85,7 @@ func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus
 	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
-		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId})
+		return nil, internal.NewLoggableError(err, code, map[string]any{"jobId": jobId})
 	}
 	defer rows.Close()
 
@@ -103,7 +103,7 @@ func (repo *repoDB) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt inte
 	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusDt, jobId, time.Time(busDt))
 	if err != nil {
 		code := internal.PgErrToCommon(err)
-		return nil, internal.NewCommonError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
+		return nil, internal.NewLoggableError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
 	}
 	defer rows.Close()
 
@@ -145,7 +145,7 @@ func dbToDomain(rows *sql.Rows) (jobStatus.JobStatus, error) {
 
 	err := rows.Scan(&appId, &jobId, &jobSt, &jobTs, &busDt, &runId, &hstId)
 	if err != nil {
-		return jobStatus.JobStatus{}, internal.NewCommonError(err, internal.ErrcdRepoScan, rows)
+		return jobStatus.JobStatus{}, internal.NewLoggableError(err, internal.ErrcdRepoScan, rows)
 	}
 
 	return jobStatus.NewJobStatus(dtoType.JobStatusDto{

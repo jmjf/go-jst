@@ -39,7 +39,7 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 	err := decoder.Decode(&dto)
 	if err != nil {
 		//
-		logErr := internal.NewCommonError(err, internal.ErrcdJsonDecode, request.Body)
+		logErr := internal.NewLoggableError(err, internal.ErrcdJsonDecode, request.Body)
 		internal.LogError(logger, "JSON Decode Error", logErr.Error(), logErr)
 		response.WriteHeader(http.StatusBadRequest)
 		return
@@ -52,7 +52,7 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 	if err != nil {
 		logErr := internal.WrapError(err)
 		// Need to identify error type and get it for logging
-		var ce *internal.CommonError
+		var ce *internal.LoggableError
 		var responseStatus int
 
 		if errors.As(err, &ce) {

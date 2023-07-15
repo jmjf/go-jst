@@ -19,7 +19,7 @@ func NewAddJobStatusUC(jsr Repo) *AddJobStatusUC {
 
 // AddJobStatusUC.Execute attempts to add a new job status to the data store.
 // Returns a JobStatus and nil error on success.
-// Returns an error (CommonError) and empty JobStatus on failure.
+// Returns an error (LoggableError) and empty JobStatus on failure.
 //
 // Mutates receiver: no
 func (uc AddJobStatusUC) Execute(dto dtoType.JobStatusDto) (JobStatus, error) {
@@ -49,7 +49,7 @@ func NewGetJobStatusByQueryUC(jsr Repo) *GetJobStatusByQueryUC {
 
 // TODO: GetJobStatusByQueryUC.Execute finds job status data for a query (string).
 // Returns a slice of JobStatus and nil error on success.
-// Returns an error (CommonError) and empty slice of JobStatus on failure.
+// Returns an error (LoggableError) and empty slice of JobStatus on failure.
 //
 // Mutates receiver: no
 func (uc GetJobStatusByQueryUC) Execute(dto dtoType.JobStatusDto) ([]JobStatus, error) {

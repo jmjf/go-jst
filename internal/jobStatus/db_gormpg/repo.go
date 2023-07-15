@@ -44,7 +44,7 @@ func NewRepoDB(DSN string) *repoDB {
 // Mutates receiver: yes (sets repo.DB)
 func (repo *repoDB) Open() error {
 	if repo.DSN == "" {
-		return internal.NewCommonError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
+		return internal.NewLoggableError(internal.ErrRepoNoDsn, internal.ErrcdRepoNoDsn, nil)
 	}
 
 	db, err := gorm.Open(postgres.Open(repo.DSN), &gorm.Config{
@@ -53,7 +53,7 @@ func (repo *repoDB) Open() error {
 		NowFunc:        func() time.Time { return time.Now().UTC() },
 	})
 	if err != nil {
-		return internal.NewCommonError(err, internal.ErrcdRepoConnException, nil)
+		return internal.NewLoggableError(err, internal.ErrcdRepoConnException, nil)
 	}
 	repo.DB = db
 	return nil
@@ -69,7 +69,7 @@ func (repo *repoDB) Close() error {
 	if repo.DB != nil {
 		sqlDB, err := repo.DB.DB()
 		if err != nil {
-			return internal.NewCommonError(err, internal.PgErrToCommon((err)), nil)
+			return internal.NewLoggableError(err, internal.PgErrToCommon((err)), nil)
 		}
 		return sqlDB.Close()
 	}
@@ -86,7 +86,7 @@ func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 
 	if res.Error != nil {
 		code := internal.PgErrToCommon(res.Error)
-		return internal.NewCommonError(res.Error, code, jobStatus)
+		return internal.NewLoggableError(res.Error, code, jobStatus)
 	}
 
 	return nil
@@ -104,7 +104,7 @@ func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus
 
 	if result.Error != nil {
 		code := internal.PgErrToCommon(result.Error)
-		return nil, internal.NewCommonError(result.Error, code, where)
+		return nil, internal.NewLoggableError(result.Error, code, where)
 	}
 
 	data, err := rowsToDomain(dbStatuses)
@@ -129,7 +129,7 @@ func (repo *repoDB) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt inte
 
 	if result.Error != nil {
 		code := internal.PgErrToCommon(result.Error)
-		return nil, internal.NewCommonError(result.Error, code, where)
+		return nil, internal.NewLoggableError(result.Error, code, where)
 	}
 
 	data, err := rowsToDomain(dbStatuses)
