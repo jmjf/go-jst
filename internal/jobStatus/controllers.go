@@ -52,12 +52,12 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 	if err != nil {
 		logErr := internal.WrapError(err)
 		// Need to identify error type and get it for logging
-		var ce *internal.LoggableError
+		var le *internal.LoggableError
 		var responseStatus int
 
-		if errors.As(err, &ce) {
+		if errors.As(err, &le) {
 			responseStatus = http.StatusBadRequest
-			internal.LogError(logger, ce.Err.Error(), logErr.Error(), ce)
+			internal.LogError(logger, le.Err.Error(), logErr.Error(), le)
 		} else {
 			responseStatus = http.StatusInternalServerError
 			logger.Error("Unknown error type", "err", err)

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"errors"
+	"go-slo/internal"
 	"log/slog"
 	"math"
 	"net/http"
@@ -44,7 +46,17 @@ func LogRequest(next http.Handler, logger *slog.Logger) http.Handler {
 		}
 
 		rcvTs := time.Now().UTC()
-		requestId := GetRequestId(req.Context())
+		requestId, err := GetRequestId(req.Context())
+		if err != nil {
+			logErr := internal.WrapError(err)
+			var le *internal.LoggableError
+			if errors.As(err, &le) {
+				internal.LogError(logger, le.Err.Error(), logErr.Error(), le)
+			} else {
+				logger.Error("Unknown error type", "err", err)
+			}
+			// not fatal: log but continue with 0 requestId
+		}
 
 		logger.Log(nil, requestLogLevel, "received", "remoteAddr", req.RemoteAddr,
 			"requestId", requestId,

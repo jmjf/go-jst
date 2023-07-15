@@ -80,6 +80,11 @@ var (
 	// should retry? etc.
 )
 
+var (
+	ErrMWGetReqId   = errors.New("error getting request id")
+	ErrcdMWGetReqId = "GetReqId"
+)
+
 // Primitive errors and error codes for controller errors
 var (
 	ErrJsonDecode   = errors.New("json decode error")

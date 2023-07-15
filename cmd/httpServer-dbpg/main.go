@@ -8,7 +8,7 @@ import (
 
 	jshttp "go-slo/internal/jobStatus/http"
 	modinit "go-slo/internal/jobStatus/infra/dbpg"
-	"go-slo/lib/middleware"
+	"go-slo/internal/middleware"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )

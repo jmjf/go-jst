@@ -3,6 +3,8 @@ package middleware
 import (
 	"context"
 	"net/http"
+
+	"go-slo/internal"
 )
 
 // requestIdKey is the reqeust id's name in the context.
@@ -12,12 +14,13 @@ const requestIdKey = "requestId"
 // If it can get the request id, it returns it.
 // If it cannot get the request id, it returns 0.
 // TODO: return an error if cannot get request id
-func GetRequestId(ctx context.Context) uint64 {
+func GetRequestId(ctx context.Context) (uint64, error) {
 	reqId, ok := ctx.Value(requestIdKey).(uint64)
+
 	if !ok {
-		return 0
+		return 0, internal.NewLoggableError(internal.ErrMWGetReqId, internal.ErrcdMWGetReqId, reqId)
 	}
-	return reqId
+	return reqId, nil
 }
 
 // AddRequestId returns a middleware handler that assigns a request id to the request's context.
