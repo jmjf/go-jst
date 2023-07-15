@@ -151,3 +151,7 @@ I also read a well reasoned article arguing against passing pointers seeking to 
 I want to check all interfaces and methods that take a receiver and make them consistent so behavior is predictable, making decisions based on sound understanding of what they need to do.
 
 I want to ensure all methods and interfaces have documentation comments that include a statement about whether a function mutates the receiver or not.
+
+### What is httpsnoop doing
+
+I want to understand the issues `httpsnoop` tackles to get data out of the `ResponseWriter` and why they exist and matter because I want to better understand what's going on in the http stack.

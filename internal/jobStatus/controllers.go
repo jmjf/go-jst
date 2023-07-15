@@ -72,4 +72,5 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 	// encode response (generic to all HTTP controllers)
 	encoder := json.NewEncoder(response)
 	encoder.Encode(result)
+	response.WriteHeader(http.StatusOK)
 }
