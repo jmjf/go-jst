@@ -12,6 +12,7 @@ import (
 
 // requestIdKey is the reqeust id's name in the context.
 const requestIdKey = "requestId"
+const traceIdHeader = "X-Goslo-Trace-Id"
 
 // GetRequestId accepts a context and attempts to get the request id from it.
 // If it can get the request id, it returns it.
@@ -34,17 +35,25 @@ func AddRequestId(next http.Handler) http.Handler {
 		useNano = false
 		reqId = uint64(1)
 		// TODO: log the error
-		// Low risk because, other than stdlib, the only error is if length is invalid--21 isn't.
+		// Low risk because, other than stdlib errors, the only error is invalid length--21 is valid.
 	}
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		var ctx context.Context
-		if useNano {
-			ctx = context.WithValue(req.Context(), requestIdKey, generateNano())
-		} else {
-			ctx = context.WithValue(req.Context(), requestIdKey, strconv.FormatUint(reqId, 36))
-			reqId++
+
+		traceId := req.Header.Get(traceIdHeader)
+		if traceId == "" {
+			var tracePrefix = req.Method + req.URL.Path + "_"
+			if useNano {
+				traceId = tracePrefix + generateNano()
+			} else {
+				traceId = tracePrefix + strconv.FormatUint(reqId, 36)
+				reqId++
+			}
 		}
+		ctx = context.WithValue(req.Context(), requestIdKey, traceId)
+		res.Header().Set(traceIdHeader, traceId)
+
 		next.ServeHTTP(res, req.WithContext(ctx))
 	})
 }

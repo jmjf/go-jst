@@ -155,3 +155,11 @@ I want to ensure all methods and interfaces have documentation comments that inc
 ### What is httpsnoop doing
 
 I want to understand the issues `httpsnoop` tackles to get data out of the `ResponseWriter` and why they exist and matter because I want to better understand what's going on in the http stack.
+
+### Understand OpenTelemetry distributed tracing
+
+I want to understand how OpenTelemetry distributed tracing works and experiment with it to provide better and more standard cross-service transaction tracing.
+
+At the same time, change the logging name for the id to `traceId`.
+
+[Reference](https://uptrace.dev/opentelemetry/distributed-tracing.html)
