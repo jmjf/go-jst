@@ -63,10 +63,11 @@ func main() {
 	fmt.Println(" -- build mux")
 	apiMux := http.NewServeMux()
 	mux := http.NewServeMux()
+	logRequestMw := middleware.BuildReqLoggerMw(logger)
 
 	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl))
 	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl))
-	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(middleware.LogRequest(apiMux, logger))))
+	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(logRequestMw(apiMux))))
 	mux.Handle("/", logHandler(logger, "/"))
 
 	fmt.Println(" -- start server")

@@ -43,7 +43,7 @@ func AddRequestId(next http.Handler) http.Handler {
 
 		traceId := req.Header.Get(traceIdHeader)
 		if traceId == "" {
-			var tracePrefix = req.Method + req.URL.Path + "_"
+			var tracePrefix = req.URL.Path + "|" + req.Method + "|"
 			if useNano {
 				traceId = tracePrefix + generateNano()
 			} else {

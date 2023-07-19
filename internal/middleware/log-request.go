@@ -36,58 +36,63 @@ func wrapResponseWriter(res http.ResponseWriter) *resWrapper {
 // requestLogLevel controls the log level used to log requests and make controlling logging volume easier.
 const requestLogLevel = slog.LevelInfo
 
-// LogRequest logs information about received requests and their responses.
-func LogRequest(next http.Handler, logger *slog.Logger) http.Handler {
-	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		// move on if the logger won't log the target level
-		if !logger.Handler().Enabled(nil, requestLogLevel) {
-			next.ServeHTTP(res, req)
-			return
-		}
-
-		rcvTs := time.Now().UTC()
-		requestId, err := GetRequestId(req.Context())
-		if err != nil {
-			logErr := internal.WrapError(err)
-			var le *internal.LoggableError
-			if errors.As(err, &le) {
-				internal.LogError(logger, le.Err.Error(), logErr.Error(), le)
-			} else {
-				logger.Error("Unknown error type", "err", err)
+// BuildReqLoggerMw returns a function that can be used in a standard net/http middleware chain.
+// This function exists because the request logger needs a logger. I want to keep the middleware handler
+// that accepts the next handler consistent with normal patterns.
+func BuildReqLoggerMw(logger *slog.Logger) func(http.Handler) http.Handler {
+	// logger is available in this closure space, so we can use it below safely.
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			// move on if the logger won't log the target level
+			if !logger.Handler().Enabled(nil, requestLogLevel) {
+				next.ServeHTTP(res, req)
+				return
 			}
-			// not fatal: log but continue with 0 requestId
-		}
 
-		logger.Log(nil, requestLogLevel, "received", "remoteAddr", req.RemoteAddr,
-			"requestId", requestId,
-			"requestURI", req.RequestURI,
-			"method", req.Method,
-			"receivedContentLength", req.ContentLength,
-			"receivedTime", rcvTs.Format(time.RFC3339Nano),
-		)
+			rcvTs := time.Now().UTC()
+			requestId, err := GetRequestId(req.Context())
+			if err != nil {
+				logErr := internal.WrapError(err)
+				var le *internal.LoggableError
+				if errors.As(err, &le) {
+					internal.LogError(logger, le.Err.Error(), logErr.Error(), le)
+				} else {
+					logger.Error("Unknown error type", "err", err)
+				}
+				// not fatal: log but continue with 0 requestId
+			}
 
-		wrappedRes := wrapResponseWriter(res)
-
-		defer func() {
-			resTm := time.Since(rcvTs)
-			logger.Log(nil, requestLogLevel, "responding", "remoteAddr", req.RemoteAddr,
+			logger.Log(nil, requestLogLevel, "received", "remoteAddr", req.RemoteAddr,
 				"requestId", requestId,
 				"requestURI", req.RequestURI,
 				"method", req.Method,
 				"receivedContentLength", req.ContentLength,
 				"receivedTime", rcvTs.Format(time.RFC3339Nano),
-				"responseMs", math.Round(float64(resTm.Microseconds())/100.0)/10.0, // nnn.n ms
-				"statusCode", wrappedRes.status,
-				"responseContentLength", wrappedRes.contentLength,
 			)
 
-			// TODO: Replace with a better solution.
-			updateStats(wrappedRes, req, resTm)
-			logger.Info("stats", "routeStats", GetRouteStats())
-		}()
+			wrappedRes := wrapResponseWriter(res)
 
-		next.ServeHTTP(wrappedRes, req)
-	})
+			defer func() {
+				resTm := time.Since(rcvTs)
+				logger.Log(nil, requestLogLevel, "responding", "remoteAddr", req.RemoteAddr,
+					"requestId", requestId,
+					"requestURI", req.RequestURI,
+					"method", req.Method,
+					"receivedContentLength", req.ContentLength,
+					"receivedTime", rcvTs.Format(time.RFC3339Nano),
+					"responseMs", math.Round(float64(resTm.Microseconds())/100.0)/10.0, // nnn.n ms
+					"statusCode", wrappedRes.status,
+					"responseContentLength", wrappedRes.contentLength,
+				)
+
+				// TODO: Replace with a better solution.
+				updateStats(wrappedRes, req, resTm)
+				logger.Info("stats", "routeStats", GetRouteStats())
+			}()
+
+			next.ServeHTTP(wrappedRes, req)
+		})
+	}
 }
 
 // RouteStats holds basic request/response statistics for the server for monitoring purposes.
