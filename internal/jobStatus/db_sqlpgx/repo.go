@@ -34,7 +34,6 @@ func NewRepoDB(DSN string) *repoDB {
 			VALUES($1, $2, $3, $4, $5, $6, $7)
 		`,
 		sqlSelect:          `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
-		sqlWhereJobId:      `WHERE "JobId" = $1`,
 		sqlWhereJobIdBusDt: `WHERE "JobId" = $1 AND "BusinessDate" = $2`,
 	}
 }
@@ -78,14 +77,16 @@ func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 	return nil
 }
 
-// GetByJobId retrieves JobStatus structs for a specific job id.
+// GetByQuery retrieves JobStatus structs for query criteria expressed in the dto.
+// Currently only supports JobId and BusDt
+// TODO: Handle other values
 //
 // Mutates receiver: no
-func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
-	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobId, jobId)
+func (repo *repoDB) GetByQuery(dto dtoType.JobStatusDto) ([]jobStatus.JobStatus, error) {
+	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusDt, dto.JobId, time.Time(dto.BusDt))
 	if err != nil {
 		code := internal.PgErrToCommon(err)
-		return nil, internal.NewLoggableError(err, code, map[string]any{"jobId": jobId})
+		return nil, internal.NewLoggableError(err, code, map[string]any{"jobId": dto.JobId, "busDt": dto.BusDt})
 	}
 	defer rows.Close()
 
@@ -93,23 +94,8 @@ func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus
 	if err != nil {
 		return nil, internal.WrapError(err)
 	}
-	return data, nil
-}
-
-// GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
-//
-// Mutates receiver: no
-func (repo *repoDB) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
-	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusDt, jobId, time.Time(busDt))
-	if err != nil {
-		code := internal.PgErrToCommon(err)
-		return nil, internal.NewLoggableError(err, code, map[string]any{"jobId": jobId, "busDt": busDt})
-	}
-	defer rows.Close()
-
-	data, err := rowsToDomain(rows)
-	if err != nil {
-		return nil, internal.WrapError(err)
+	if len(data) == 0 {
+		return nil, internal.NewLoggableError(internal.ErrRepoNotFound, internal.ErrcdRepoNotFound, dto)
 	}
 	return data, nil
 }

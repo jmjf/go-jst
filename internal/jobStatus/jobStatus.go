@@ -15,8 +15,7 @@ import (
 type Repo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
 	Add(jobStatus JobStatus) error
-	GetByJobId(id JobIdType) ([]JobStatus, error)
-	GetByJobIdBusinessDate(id JobIdType, businessDate internal.Date) ([]JobStatus, error)
+	GetByQuery(dtoType.JobStatusDto) ([]JobStatus, error)
 	Close() error
 }
 

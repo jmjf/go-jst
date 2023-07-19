@@ -1,6 +1,7 @@
 package jobStatus
 
 import (
+	"errors"
 	"go-slo/internal"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
@@ -53,5 +54,22 @@ func NewGetJobStatusByQueryUC(jsr Repo) *GetJobStatusByQueryUC {
 //
 // Mutates receiver: no
 func (uc GetJobStatusByQueryUC) Execute(dto dtoType.JobStatusDto) ([]JobStatus, error) {
-	return []JobStatus{}, nil
+	if dto.JobId == "" || dto.BusDt.AsTime().IsZero() {
+		return []JobStatus{}, internal.NewLoggableError(internal.ErrAppQueryTerm, internal.ErrcdAppQueryTerm, dto)
+	}
+
+	result, err := uc.jobStatusRepo.GetByQuery(dto)
+	if err != nil {
+		// only error if error isn't NotFound
+		var le *internal.LoggableError
+		if errors.As(err, &le) {
+			if le.Code != internal.ErrcdRepoNotFound {
+				return []JobStatus{}, internal.WrapError(err)
+			}
+		}
+		// NotFound, ensure result is empty
+		result = []JobStatus{}
+	}
+
+	return result, nil
 }

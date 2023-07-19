@@ -62,6 +62,8 @@ var (
 var (
 	ErrAppUnexpected   = errors.New("unexpected error")
 	ErrcdAppUnexpected = "UnexpectedError"
+	ErrAppQueryTerm    = errors.New("invalid query term")
+	ErrcdAppQueryTerm  = "InvalidQueryTerm"
 )
 
 // Primitive errors an error codes for repo errors
@@ -74,6 +76,8 @@ var (
 	ErrcdRepoDupeRow       = "DuplicateRowError"
 	ErrRepoConnException   = errors.New("connection exception error")
 	ErrcdRepoConnException = "ConnectionExceptionError"
+	ErrRepoNotFound        = errors.New("no results found")
+	ErrcdRepoNotFound      = "NotFound"
 	ErrRepoOther           = errors.New("other error")
 	ErrcdRepoOther         = "RepoOtherError"
 	// TODO: examine database error and classify it

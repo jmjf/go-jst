@@ -137,19 +137,18 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				return
 			}
 
-			var de *internal.LoggableError
-			if errors.As(err, &de) {
+			var le *internal.LoggableError
+			if errors.As(err, &le) {
 				// get the first error from Data and call Error() on it to get a string
-				msg := de.Data.([]error)[0].Error()
+				msg := le.Data.([]error)[0].Error()
 				match, _ := regexp.MatchString(tt.wantErr, msg)
 				if !match {
 					t.Errorf("FAIL | Expected error %q, got: %s", tt.wantErr, err)
 				}
-				// err is a DomainError so, we're good
+				// err is a LoggableError so, we're good
 				return
 			}
-			t.Errorf("FAIL | Expected DomainError, got: %v", err)
-
+			t.Errorf("FAIL | Expected LoggableError, got: %v", err)
 		})
 	}
 }
@@ -204,11 +203,11 @@ func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
 				t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
 				return
 			}
-			var re *internal.LoggableError
-			if errors.As(err, &re) {
-				// fmt.Printf("re %+v", *re)
-				if re.Code != tt.expectErrCode {
-					t.Errorf("FAIL | Expected %s, got %+v", tt.expectErrCode, re)
+			var le *internal.LoggableError
+			if errors.As(err, &le) {
+				// fmt.Printf("le %+v", *le)
+				if le.Code != tt.expectErrCode {
+					t.Errorf("FAIL | Expected %s, got %+v", tt.expectErrCode, le)
 				}
 				// whether Code is wrong or not, we go the right type of error so we're done
 				return
@@ -242,4 +241,186 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 		t.Errorf("FAIL | Expected ok, got err: %+v", err)
 		return
 	}
+}
+
+func Test_jobStatusUC_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
+
+	tests := []struct {
+		name      string
+		testField string
+		testValue any
+		wantErr   string
+	}{
+		{
+			name:      "when JobId is zero value it returns missing query term",
+			testField: "JobId",
+			testValue: "",
+			wantErr:   internal.ErrAppQueryTerm.Error(),
+		},
+		{
+			name:      "when BusDt is zero value it returns missing query term",
+			testField: "BusDt",
+			testValue: internal.NewDateFromTime(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)), // zero time 0001-01-01T00:00:00.000Z
+			wantErr:   internal.ErrAppQueryTerm.Error(),
+		},
+	}
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			_, _, jsRepo, dto, err := dbSqlPgBeforeEach(t) // don't need db or mock
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+			// set the value of the field to test
+			tf := reflect.ValueOf(&dto).Elem().FieldByName(tt.testField)
+			tf.Set(reflect.ValueOf(tt.testValue))
+
+			// Act
+			got, err := uc.Execute(dto)
+			if err == nil {
+				t.Errorf("FAIL | Expected error %q, got: %+v", tt.wantErr, got)
+				return
+			}
+
+			// Assert
+			var le *internal.LoggableError
+			if errors.As(err, &le) {
+				// is the expected error string present
+				match, _ := regexp.MatchString(tt.wantErr, le.Error())
+				if !match {
+					t.Errorf("FAIL | Expected error %q, got: %s", tt.wantErr, err)
+				}
+				return
+			}
+			t.Errorf("FAIL | Expected LoggableError, got: %v", err)
+		})
+	}
+}
+
+func Test_jobStatusUC_GetQuery_RepoErrorReturnsError(t *testing.T) {
+	// Arrange
+	wantErr := internal.ErrRepoOther.Error()
+	db, mock, jsRepo, dto, err := dbSqlPgBeforeEach(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
+		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
+		WillReturnError(internal.ErrRepoOther)
+
+	// Act
+	got, err := uc.Execute(dto)
+	if err == nil {
+		t.Errorf("FAIL | Expected error %s, got: %+v", wantErr, got)
+		return
+	}
+
+	// Assert
+	var le *internal.LoggableError
+	if errors.As(err, &le) {
+		// is the expected error string present
+		match, _ := regexp.MatchString(wantErr, le.Error())
+		if !match {
+			t.Errorf("FAIL | Expected error %q, got: %s", wantErr, err)
+		}
+		return
+	}
+	t.Errorf("FAIL | Expected LoggableError, got: %v", err)
+
+}
+
+func Test_jobStatusUC_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
+	// Arrange
+	db, mock, jsRepo, dto, err := dbSqlPgBeforeEach(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
+		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
+		WillReturnRows(sqlmock.NewRows([]string{"ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId"}))
+		// empty result
+
+	// Act
+	got, err := uc.Execute(dto)
+	if err != nil {
+		t.Errorf("FAIL | Expected empty result, got: %+v", err)
+		return
+	}
+
+	if len(got) != 0 {
+		t.Errorf("FAIL | Expected empty result, got: %+v", got)
+	}
+}
+
+func Test_jobStatusUC_GetQuery_DataFoundReturnsResult(t *testing.T) {
+	// Arrange
+	db, mock, jsRepo, dto, err := dbSqlPgBeforeEach(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+	dt, _ := internal.NewDate("2023-04-08")
+	wantData := []jobStatus.JobStatus{
+		{
+			ApplicationId:      "abc",
+			JobId:              "123",
+			JobStatusCode:      jobStatus.JobStart,
+			JobStatusTimestamp: time.Now().UTC(),
+			BusinessDate:       dt,
+			RunId:              "run1",
+			HostId:             "",
+		},
+		{
+			ApplicationId:      "def",
+			JobId:              "987",
+			JobStatusCode:      jobStatus.JobFail,
+			JobStatusTimestamp: time.Now().UTC(),
+			BusinessDate:       dt,
+			RunId:              "run2",
+			HostId:             "42",
+		},
+	}
+	rows := sqlmock.NewRows([]string{"ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId"}).
+		AddRow(wantData[0].ApplicationId, wantData[0].JobId, wantData[0].JobStatusCode, wantData[0].JobStatusTimestamp,
+			wantData[0].BusinessDate.AsTime(), wantData[0].RunId, wantData[0].HostId).
+		AddRow(wantData[1].ApplicationId, wantData[1].JobId, wantData[1].JobStatusCode, wantData[1].JobStatusTimestamp,
+			wantData[1].BusinessDate.AsTime(), wantData[1].RunId, wantData[1].HostId)
+
+	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
+		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
+		WillReturnRows(rows)
+
+	// Act
+	got, err := uc.Execute(dto)
+	if err != nil {
+		t.Errorf("FAIL | Expected empty result, got: %+v", err)
+		return
+	}
+
+	if len(got) != 2 {
+		t.Errorf("FAIL | Expected 2 results, got: %d - %+v", len(got), got)
+	}
+	if got[0].ApplicationId != wantData[0].ApplicationId ||
+		got[0].JobId != wantData[0].JobId ||
+		got[1].ApplicationId != wantData[1].ApplicationId ||
+		got[1].JobId != wantData[1].JobId {
+		t.Errorf("FAIL | got doesn't match wantData\ngot: %+v\nwantData: %+v", got, wantData)
+	}
+
 }
