@@ -59,7 +59,7 @@ func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus
 	return gormDb, db, mock, jsRepo, dto, err
 }
 
-func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
+func Test_jobStatusUC_gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	// value for BusDt test needs to be Date type
 	futureDate, _ := internal.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
 
@@ -171,7 +171,7 @@ func Test_jobStatusUC_Gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
+func Test_jobStatusUC_gorm_Add_RepoErrors(t *testing.T) {
 	// when repo returns <error> it recognizes the error
 
 	// Arrange
@@ -237,7 +237,7 @@ func Test_jobStatusUC_Gorm_Add_RepoErrors(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
+func Test_jobStatusUC_gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 	// when data is good it returns a JobStatus
 
 	// Arrange
@@ -262,5 +262,186 @@ func Test_jobStatusUC_Gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 	if err != nil {
 		t.Errorf("FAIL | Expected ok, got err: %+v", err)
 		return
+	}
+}
+
+func Test_jobStatusUC_gorm_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
+
+	tests := []struct {
+		name      string
+		testField string
+		testValue any
+		wantErr   string
+	}{
+		{
+			name:      "when JobId is zero value it returns missing query term",
+			testField: "JobId",
+			testValue: "",
+			wantErr:   internal.ErrAppQueryTerm.Error(),
+		},
+		{
+			name:      "when BusDt is zero value it returns missing query term",
+			testField: "BusDt",
+			testValue: internal.NewDateFromTime(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)), // zero time 0001-01-01T00:00:00.000Z
+			wantErr:   internal.ErrAppQueryTerm.Error(),
+		},
+	}
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			_, db, _, jsRepo, dto, err := gormBeforeEach(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+
+			uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+			// set the value of the field to test
+			tf := reflect.ValueOf(&dto).Elem().FieldByName(tt.testField)
+			tf.Set(reflect.ValueOf(tt.testValue))
+
+			// Act
+			got, err := uc.Execute(dto)
+			if err == nil {
+				t.Errorf("FAIL | Expected error %q, got: %+v", tt.wantErr, got)
+				return
+			}
+
+			// Assert
+			var le *internal.LoggableError
+			if errors.As(err, &le) {
+				// is the expected error string present
+				match, _ := regexp.MatchString(tt.wantErr, le.Error())
+				if !match {
+					t.Errorf("FAIL | Expected error %q, got: %s", tt.wantErr, err)
+				}
+				return
+			}
+			t.Errorf("FAIL | Expected LoggableError, got: %v", err)
+		})
+	}
+}
+
+func Test_jobStatusUC_gorm_GetQuery_RepoErrorReturnsError(t *testing.T) {
+	// Arrange
+	wantErr := internal.ErrRepoOther.Error()
+	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
+		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
+		WillReturnError(internal.ErrRepoOther)
+
+	// Act
+	got, err := uc.Execute(dto)
+	if err == nil {
+		t.Errorf("FAIL | Expected error %s, got: %+v", wantErr, got)
+		return
+	}
+
+	// Assert
+	var le *internal.LoggableError
+	if errors.As(err, &le) {
+		// is the expected error string present
+		match, _ := regexp.MatchString(wantErr, le.Error())
+		if !match {
+			t.Errorf("FAIL | Expected error %q, got: %s", wantErr, err)
+		}
+		return
+	}
+	t.Errorf("FAIL | Expected LoggableError, got: %v", err)
+}
+
+func Test_jobStatusUC_gorm_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
+	// Arrange
+	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
+		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
+		WillReturnRows(sqlmock.NewRows([]string{"ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId"}))
+		// empty result
+
+	// Act
+	got, err := uc.Execute(dto)
+	if err != nil {
+		t.Errorf("FAIL | Expected empty result, got: %+v", err)
+		return
+	}
+
+	if len(got) != 0 {
+		t.Errorf("FAIL | Expected empty result, got: %+v", got)
+	}
+}
+
+func Test_jobStatusUC_gorm_GetQuery_DataFoundReturnsResult(t *testing.T) {
+	// Arrange
+	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+
+	dt, _ := internal.NewDate("2023-04-08")
+	wantData := []jobStatus.JobStatus{
+		{
+			ApplicationId:      "abc",
+			JobId:              "123",
+			JobStatusCode:      jobStatus.JobStart,
+			JobStatusTimestamp: time.Now().UTC(),
+			BusinessDate:       dt,
+			RunId:              "run1",
+			HostId:             "",
+		},
+		{
+			ApplicationId:      "def",
+			JobId:              "987",
+			JobStatusCode:      jobStatus.JobFail,
+			JobStatusTimestamp: time.Now().UTC(),
+			BusinessDate:       dt,
+			RunId:              "run2",
+			HostId:             "42",
+		},
+	}
+	rows := sqlmock.NewRows([]string{"ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId"}).
+		AddRow(wantData[0].ApplicationId, wantData[0].JobId, wantData[0].JobStatusCode, wantData[0].JobStatusTimestamp,
+			wantData[0].BusinessDate.AsTime(), wantData[0].RunId, wantData[0].HostId).
+		AddRow(wantData[1].ApplicationId, wantData[1].JobId, wantData[1].JobStatusCode, wantData[1].JobStatusTimestamp,
+			wantData[1].BusinessDate.AsTime(), wantData[1].RunId, wantData[1].HostId)
+
+	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
+		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
+		WillReturnRows(rows)
+
+	// Act
+	got, err := uc.Execute(dto)
+	if err != nil {
+		t.Errorf("FAIL | Expected empty result, got: %+v", err)
+		return
+	}
+
+	if len(got) != 2 {
+		t.Errorf("FAIL | Expected 2 results, got: %d - %+v", len(got), got)
+	}
+	if got[0].ApplicationId != wantData[0].ApplicationId ||
+		got[0].JobId != wantData[0].JobId ||
+		got[1].ApplicationId != wantData[1].ApplicationId ||
+		got[1].JobId != wantData[1].JobId {
+		t.Errorf("FAIL | got doesn't match wantData\ngot: %+v\nwantData: %+v", got, wantData)
 	}
 }

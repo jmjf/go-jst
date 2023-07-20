@@ -42,7 +42,7 @@ func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.Repo, 
 	return db, mock, jsRepo, dto, err
 }
 
-func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	// value for BusDt test needs to be Date type
 	futureDate, _ := internal.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
 
@@ -153,7 +153,7 @@ func Test_jobStatusUC_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_Add_RepoErrors(t *testing.T) {
 	// when repo returns <error> it recognizes the error
 
 	// Arrange
@@ -217,7 +217,7 @@ func Test_jobStatusUC_Add_RepoErrors(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_Add_SuccessReturnsJobStatus(t *testing.T) {
 	// when data is good it returns a JobStatus
 
 	// Arrange
@@ -243,7 +243,7 @@ func Test_jobStatusUC_Add_SuccessReturnsJobStatus(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
 
 	tests := []struct {
 		name      string
@@ -302,7 +302,7 @@ func Test_jobStatusUC_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_GetQuery_RepoErrorReturnsError(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_GetQuery_RepoErrorReturnsError(t *testing.T) {
 	// Arrange
 	wantErr := internal.ErrRepoOther.Error()
 	db, mock, jsRepo, dto, err := dbSqlPgBeforeEach(t)
@@ -335,10 +335,9 @@ func Test_jobStatusUC_GetQuery_RepoErrorReturnsError(t *testing.T) {
 		return
 	}
 	t.Errorf("FAIL | Expected LoggableError, got: %v", err)
-
 }
 
-func Test_jobStatusUC_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 	// Arrange
 	db, mock, jsRepo, dto, err := dbSqlPgBeforeEach(t)
 	if err != nil {
@@ -365,7 +364,7 @@ func Test_jobStatusUC_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_GetQuery_DataFoundReturnsResult(t *testing.T) {
+func Test_jobStatusUC_dbsqlpg_GetQuery_DataFoundReturnsResult(t *testing.T) {
 	// Arrange
 	db, mock, jsRepo, dto, err := dbSqlPgBeforeEach(t)
 	if err != nil {
@@ -422,5 +421,4 @@ func Test_jobStatusUC_GetQuery_DataFoundReturnsResult(t *testing.T) {
 		got[1].JobId != wantData[1].JobId {
 		t.Errorf("FAIL | got doesn't match wantData\ngot: %+v\nwantData: %+v", got, wantData)
 	}
-
 }

@@ -92,36 +92,14 @@ func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 	return nil
 }
 
-// GetByJobId retrieves JobStatus structs for a specific job id.
+// GetByQuery retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo *repoDB) GetByJobId(jobId jobStatus.JobIdType) ([]jobStatus.JobStatus, error) {
-	var dbStatuses []gormModel
-	where := map[string]string{"jobId": string(jobId)}
-
-	// Use named argument to avoid questions about tags
-	result := repo.DB.Where("JobId = @jobId", where).Find(&dbStatuses)
-
-	if result.Error != nil {
-		code := internal.PgErrToCommon(result.Error)
-		return nil, internal.NewLoggableError(result.Error, code, where)
-	}
-
-	data, err := rowsToDomain(dbStatuses)
-	if err != nil {
-		return nil, internal.WrapError(err)
-	}
-	return data, nil
-}
-
-// GetByJobIdBusinessDate retrieves JobStatus structs for a specific job id and business date.
-//
-// Mutates receiver: no
-func (repo *repoDB) GetByJobIdBusinessDate(jobId jobStatus.JobIdType, busDt internal.Date) ([]jobStatus.JobStatus, error) {
+func (repo *repoDB) GetByQuery(dto dtoType.JobStatusDto) ([]jobStatus.JobStatus, error) {
 	var dbStatuses []gormModel
 	where := map[string]any{
-		"jobId": jobId,
-		"busDt": time.Time(busDt),
+		"jobId": dto.JobId,
+		"busDt": dto.BusDt.AsTime(),
 	}
 
 	// Use named argument to avoid questions about tags
