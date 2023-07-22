@@ -53,7 +53,7 @@ func main() {
 
 	fmt.Println(" -- initialize app")
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", userName, password, host, port, dbName)
-	dbRepo, _, addCtrl, err := modinit.Init(pgUrl, logger)
+	dbRepo, _, _, addCtrl, queryCtrl, err := modinit.Init(pgUrl, logger)
 	if err != nil {
 		logger.Error("init failed", "err", err)
 		panic(err)
@@ -65,8 +65,8 @@ func main() {
 	mux := http.NewServeMux()
 	logRequestMw := middleware.BuildReqLoggerMw(logger)
 
-	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl))
-	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl))
+	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl, queryCtrl))
+	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl, queryCtrl))
 	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(logRequestMw(apiMux))))
 	mux.Handle("/", logHandler(logger, "/"))
 

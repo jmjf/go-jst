@@ -10,7 +10,7 @@ import (
 	"go-slo/internal/middleware"
 )
 
-func Handler(rootLogger *slog.Logger, ctrl jobStatus.Controller) http.Handler {
+func Handler(rootLogger *slog.Logger, addCtrl jobStatus.Controller, queryCtrl jobStatus.Controller) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		requestId, err := middleware.GetRequestId(req.Context())
 		if err != nil {
@@ -29,11 +29,12 @@ func Handler(rootLogger *slog.Logger, ctrl jobStatus.Controller) http.Handler {
 		// case req.Method == http.MethodGet && len(req.URL.Query()) == 0:
 		// 	// handle get all
 
-		// case req.Method == http.MethodGet && len(req.URL.Query()) > 0:
-		// 	// handle get by query
+		case req.Method == http.MethodGet && len(req.URL.Query()) > 0:
+			queryCtrl.Execute(res, req, logger)
+			return
 
 		case req.Method == http.MethodPost:
-			ctrl.Execute(res, req, logger)
+			addCtrl.Execute(res, req, logger)
 			return
 
 		default:

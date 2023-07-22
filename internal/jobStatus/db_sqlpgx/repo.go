@@ -2,6 +2,7 @@ package repo
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"go-slo/internal"
@@ -33,8 +34,7 @@ func NewRepoDB(DSN string) *repoDB {
 			INSERT INTO "JobStatus" ("ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId")
 			VALUES($1, $2, $3, $4, $5, $6, $7)
 		`,
-		sqlSelect:          `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
-		sqlWhereJobIdBusDt: `WHERE "JobId" = $1 AND "BusinessDate" = $2`,
+		sqlSelect: `SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`,
 	}
 }
 
@@ -82,11 +82,16 @@ func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 // TODO: Handle other values
 //
 // Mutates receiver: no
-func (repo *repoDB) GetByQuery(dto dtoType.JobStatusDto) ([]jobStatus.JobStatus, error) {
-	rows, err := repo.DB.Query(repo.sqlSelect+repo.sqlWhereJobIdBusDt, dto.JobId, time.Time(dto.BusDt))
+func (repo *repoDB) GetByQuery(q map[string]string) ([]jobStatus.JobStatus, error) {
+	where, vals, err := queryToWhere(q)
+	if err != nil {
+		internal.NewLoggableError(err, internal.ErrcdRepoInvalidQuery, map[string]any{"err": err, "query": q})
+	}
+
+	rows, err := repo.DB.Query(repo.sqlSelect+where, vals...)
 	if err != nil {
 		code := internal.PgErrToCommon(err)
-		return nil, internal.NewLoggableError(err, code, map[string]any{"jobId": dto.JobId, "busDt": dto.BusDt})
+		return nil, internal.NewLoggableError(err, code, map[string]any{"where": where, "vals": vals})
 	}
 	defer rows.Close()
 
@@ -95,9 +100,52 @@ func (repo *repoDB) GetByQuery(dto dtoType.JobStatusDto) ([]jobStatus.JobStatus,
 		return nil, internal.WrapError(err)
 	}
 	if len(data) == 0 {
-		return nil, internal.NewLoggableError(internal.ErrRepoNotFound, internal.ErrcdRepoNotFound, dto)
+		return nil, internal.NewLoggableError(internal.ErrRepoNotFound, internal.ErrcdRepoNotFound, map[string]any{"where": where, "vals": vals})
 	}
 	return data, nil
+}
+
+// queryToWhere builds a where clause and values from the query map, which has all values as strings.
+func queryToWhere(q map[string]string) (string, []any, error) {
+	var vals []any
+	fieldNum := 1
+	where := " WHERE " // leading space because it will be added to SELECT
+
+	for nm, val := range q {
+		dbVal, err := fieldToDb(nm, val)
+		if err != nil {
+			return "", nil, err
+		}
+		if fieldNum > 1 {
+			where += " AND "
+		}
+		where += fmt.Sprintf(`"%s" = $%d`, nm, fieldNum)
+		vals = append(vals, dbVal)
+		fieldNum++
+	}
+	return where, vals, nil
+}
+
+// fieldToDb converts string values from the query map to database values
+// we can use to run queries.
+func fieldToDb(nm string, val string) (any, error) {
+	// explicitly convert fields that are not string
+	switch nm {
+	case "JobStatusTimestamp": // time.Time
+		t, err := time.Parse(time.RFC3339, val)
+		if err != nil {
+			return nil, err
+		}
+		return t.UTC(), nil
+	case "BusinessDate": // internal.Date
+		dt, err := internal.NewDate(val)
+		if err != nil {
+			return nil, err
+		}
+		return dt.AsTime(), nil
+	default: // all the rest are strings
+		return val, nil
+	}
 }
 
 // rowsToDomain converts a slice of database job status data to a slice of domain data by calling dbToDomain() for each item.

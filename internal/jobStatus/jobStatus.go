@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 type Repo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
 	Add(jobStatus JobStatus) error
-	GetByQuery(dtoType.JobStatusDto) ([]JobStatus, error)
+	GetByQuery(map[string]string) ([]JobStatus, error)
 	Close() error
 }
 
@@ -49,6 +50,32 @@ type JobStatus struct {
 	RunId              string            `json:"runId"`
 	HostId             string            `json:"hostId"`
 }
+
+// structJSONMap takes a structure with JSON tags and builds a map of JSON tag name to field name.
+// If s is a not a struct, it returns an empty map. If a field does not have a JSON tag, it skips the field.
+// TODO: Find a better place for this function because it's probably useful elsewhere.
+func structJSONMap(s any) map[string]string {
+	var jsonMap = make(map[string]string)
+
+	st := reflect.TypeOf(s)
+	if st.Kind() != reflect.Struct {
+		return jsonMap
+	}
+
+	for _, f := range reflect.VisibleFields(st) {
+		jTag := f.Tag.Get("json")
+		jName := strings.Split(jTag, ",")[0]
+		if len(f.Name) == 0 || len(jName) == 0 {
+			continue
+		}
+		jsonMap[jName] = f.Name
+	}
+	return jsonMap
+}
+
+// validFields supports selecting valid fields and only valid fields from a query string.
+// Uses a function because requiring a manual sync with JobStatus leaves room for forgetting.
+var validFields = structJSONMap(JobStatus{})
 
 // newJobStatus validates the DTO and returns a new JobStatus using data from the DTO.
 // This function should not be called outside the JobStatus package, so it is not exported.

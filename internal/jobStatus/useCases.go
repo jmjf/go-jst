@@ -3,6 +3,7 @@ package jobStatus
 import (
 	"errors"
 	"go-slo/internal"
+
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
@@ -37,28 +38,41 @@ func (uc AddJobStatusUC) Execute(dto dtoType.JobStatusDto) (JobStatus, error) {
 	return jobStatus, nil
 }
 
-type GetJobStatusByQueryUC struct {
+type GetByQueryUC struct {
 	jobStatusRepo Repo
 }
 
-// NewGetJobStatusByQueryUC creates and returns a GetJobStatusByQueryUC
-func NewGetJobStatusByQueryUC(jsr Repo) *GetJobStatusByQueryUC {
-	return &GetJobStatusByQueryUC{
+// NewGetByQueryUC creates and returns a GetByQueryUC
+func NewGetByQueryUC(jsr Repo) *GetByQueryUC {
+	return &GetByQueryUC{
 		jobStatusRepo: jsr,
 	}
 }
 
-// TODO: GetJobStatusByQueryUC.Execute finds job status data for a query (string).
+// TODO: GetByQueryUC.Execute finds job status data for a query (string).
 // Returns a slice of JobStatus and nil error on success.
 // Returns an error (LoggableError) and empty slice of JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc GetJobStatusByQueryUC) Execute(dto dtoType.JobStatusDto) ([]JobStatus, error) {
-	if dto.JobId == "" || dto.BusDt.AsTime().IsZero() {
-		return []JobStatus{}, internal.NewLoggableError(internal.ErrAppQueryTerm, internal.ErrcdAppQueryTerm, dto)
+func (uc GetByQueryUC) Execute(rawQuery RequestQuery) ([]JobStatus, error) {
+	if len(rawQuery) == 0 ||
+		(len(rawQuery["jobId"]) == 0 && len(rawQuery["applicationId"]) == 0) ||
+		(len(rawQuery["jobStatusTimestamp"]) == 0 && len(rawQuery["businessDate"]) == 0) {
+		return []JobStatus{}, internal.NewLoggableError(internal.ErrAppTermMissing, internal.ErrcdAppTermMissing, rawQuery)
 	}
 
-	result, err := uc.jobStatusRepo.GetByQuery(dto)
+	queryMap := make(map[string]string)
+	for jt, fn := range validFields {
+		tagVal := rawQuery.Get(jt)
+		// Get() returns the first value only or "" if the array is empty.
+		// Ignore net empty values because we can't query against them.
+		if len(tagVal) == 0 {
+			continue
+		}
+		queryMap[fn] = tagVal
+	}
+
+	result, err := uc.jobStatusRepo.GetByQuery(queryMap)
 	if err != nil {
 		// only error if error isn't NotFound
 		var le *internal.LoggableError
