@@ -49,26 +49,26 @@ func newLogger() *slog.Logger {
 func main() {
 	logger := newLogger()
 
+	logger.Info("initialize application")
 	pgDSN := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
-
-	dbRepo, _, _, addCtrl, queryCtrl, err := modinit.Init(pgDSN, logger)
+	dbRepo, _, ctrl, err := modinit.Init(pgDSN, logger)
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
 		panic(err)
 	}
 	defer dbRepo.Close()
 
-	fmt.Println(" -- build mux")
+	logger.Info("build mux")
 	apiMux := http.NewServeMux()
 	mux := http.NewServeMux()
 	logRequestMw := middleware.BuildReqLoggerMw(logger)
 
-	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl, queryCtrl))
-	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl, queryCtrl))
+	apiMux.Handle("/job-statuses", jshttp.Handler(logger, ctrl))
+	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, ctrl))
 	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(logRequestMw(apiMux))))
 	mux.Handle("/", logHandler(logger, "/"))
 
-	fmt.Println(" -- start server")
+	logger.Info("start server")
 	http.ListenAndServe(":9201", mux)
 
 }

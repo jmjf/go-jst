@@ -51,25 +51,25 @@ func newLogger(appName string, svcName string) *slog.Logger {
 func main() {
 	logger := newLogger("go-slo", "job-status")
 
-	fmt.Println(" -- initialize app")
+	logger.Info("initialize application")
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", userName, password, host, port, dbName)
-	dbRepo, _, _, addCtrl, queryCtrl, err := modinit.Init(pgUrl, logger)
+	dbRepo, _, ctrl, err := modinit.Init(pgUrl, logger)
 	if err != nil {
 		logger.Error("init failed", "err", err)
 		panic(err)
 	}
 	defer dbRepo.Close()
 
-	fmt.Println(" -- build mux")
+	logger.Info("build mux")
 	apiMux := http.NewServeMux()
 	mux := http.NewServeMux()
 	logRequestMw := middleware.BuildReqLoggerMw(logger)
 
-	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl, queryCtrl))
-	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl, queryCtrl))
+	apiMux.Handle("/job-statuses", jshttp.Handler(logger, ctrl))
+	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, ctrl))
 	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(logRequestMw(apiMux))))
 	mux.Handle("/", logHandler(logger, "/"))
 
-	fmt.Println(" -- start server")
+	logger.Info("start server")
 	http.ListenAndServe(":9201", mux)
 }

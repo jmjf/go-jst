@@ -1,4 +1,4 @@
-package http
+package jobStatus
 
 import (
 	"encoding/json"
@@ -13,23 +13,25 @@ import (
 
 type RequestQuery = url.Values
 
-type AddJobStatusCtrl struct {
-	useCase *AddJobStatusUC
+type Controllers struct {
+	uc  *UseCases
+	log *slog.Logger
 }
 
-// NewAddJobStatusCtrl creates and returns an AddJobStatusCtrl
-func NewAddJobStatusCtrl(uc *AddJobStatusUC) *AddJobStatusCtrl {
-	return &AddJobStatusCtrl{
-		useCase: uc,
+// NewControllers creates and returns an Controllers
+func NewControllers(uc *UseCases, logger *slog.Logger) *Controllers {
+	return &Controllers{
+		uc:  uc,
+		log: logger,
 	}
 }
 
-// JobStatusCtrl.AddJobStatus attempts to add a new job status record to the database.
+// Add attempts to add a new job status record to the database.
 // If the request is invalid or adding fails, it logs errors and responds with
 // an appropriate HTTP status code.
 //
 // Mutates receiver: no
-func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http.Request, logger *slog.Logger) {
+func (ctrl Controllers) Add(response http.ResponseWriter, request *http.Request) {
 
 	// decode JSON into request data
 	decoder := json.NewDecoder(request.Body)
@@ -43,15 +45,15 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 	if err != nil {
 		//
 		logErr := internal.NewLoggableError(err, internal.ErrcdJsonDecode, request.Body)
-		internal.LogError(logger, "JSON Decode Error", logErr.Error(), logErr)
+		internal.LogError(ctrl.log, "JSON Decode Error", logErr.Error(), logErr)
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	logger.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "dto", dto)
+	ctrl.log.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "dto", dto)
 
 	// call use case with DTO
-	result, err := ctrl.useCase.Execute(dto)
+	result, err := ctrl.uc.Add(dto)
 	if err != nil {
 		logErr := internal.WrapError(err)
 		// Need to identify error type and get it for logging
@@ -60,17 +62,17 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 
 		if errors.As(err, &le) {
 			responseStatus = http.StatusBadRequest
-			internal.LogError(logger, le.Err.Error(), logErr.Error(), le)
+			internal.LogError(ctrl.log, le.Err.Error(), logErr.Error(), le)
 		} else {
 			responseStatus = http.StatusInternalServerError
-			logger.Error("Unknown error type", "err", err)
+			ctrl.log.Error("Unknown error type", "err", err)
 		}
 
 		response.WriteHeader(responseStatus)
 		return
 	}
 
-	logger.Debug("Add Result", "functionName", "jobStatusCtrl.AddJobStatus", "jobStatus", result)
+	ctrl.log.Debug("Add Result", "functionName", "jobStatusCtrl.AddJobStatus", "jobStatus", result)
 
 	response.WriteHeader(http.StatusOK)
 	// encode response (generic to all HTTP controllers)
@@ -78,26 +80,15 @@ func (ctrl AddJobStatusCtrl) Execute(response http.ResponseWriter, request *http
 	encoder.Encode(result)
 }
 
-type GetByQueryCtrl struct {
-	useCase *GetByQueryUC
-}
-
-// NewGetByQueryCtrl creates and returns an GetByQueryCtrl
-func NewGetByQueryCtrl(uc *GetByQueryUC) *GetByQueryCtrl {
-	return &GetByQueryCtrl{
-		useCase: uc,
-	}
-}
-
-// GetByQueryCtrl.Execute attempts to find job statuses in the database that match a query string.
+// GetByQuery attempts to find job statuses in the database that match a query string.
 // If the query string is invalid or the query fails, it logs errors and responds with an appropriate HTTP status code.
 //
 // Mutates receiver: no
-func (ctrl GetByQueryCtrl) Execute(res http.ResponseWriter, req *http.Request, logger *slog.Logger) {
-	logger.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "query", req.URL.Query())
+func (ctrl Controllers) GetByQuery(res http.ResponseWriter, req *http.Request) {
+	ctrl.log.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "query", req.URL.Query())
 
 	// call use case with DTO
-	result, err := ctrl.useCase.Execute(req.URL.Query())
+	result, err := ctrl.uc.GetByQuery(req.URL.Query())
 	if err != nil {
 		logErr := internal.WrapError(err)
 		// Need to identify error type and get it for logging
@@ -106,17 +97,17 @@ func (ctrl GetByQueryCtrl) Execute(res http.ResponseWriter, req *http.Request, l
 
 		if errors.As(err, &le) {
 			resStatus = http.StatusBadRequest
-			internal.LogError(logger, le.Err.Error(), logErr.Error(), le)
+			internal.LogError(ctrl.log, le.Err.Error(), logErr.Error(), le)
 		} else {
 			resStatus = http.StatusInternalServerError
-			logger.Error("Unknown error type", "err", err)
+			ctrl.log.Error("Unknown error type", "err", err)
 		}
 
 		res.WriteHeader(resStatus)
 		return
 	}
 
-	logger.Debug("Add Result", "functionName", "jobStatusCtrl.AddJobStatus", "jobStatus", result)
+	ctrl.log.Debug("Add Result", "functionName", "jobStatusCtrl.AddJobStatus", "jobStatus", result)
 
 	res.WriteHeader(http.StatusOK)
 	// encode response (generic to all HTTP controllers)

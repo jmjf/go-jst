@@ -2,9 +2,6 @@ package jobStatus
 
 import (
 	"fmt"
-	"log/slog"
-	"net/http"
-	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -13,19 +10,12 @@ import (
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-// TODO: remove after fixing controllers
-type RequestQuery = url.Values
-
 // interfaces used in jobStatus and subpackages
 type Repo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
 	Add(jobStatus JobStatus) error
 	GetByQuery(map[string]string) ([]JobStatus, error)
 	Close() error
-}
-
-type Controller interface {
-	Execute(response http.ResponseWriter, request *http.Request, logger *slog.Logger)
 }
 
 // I'm doing status these types the easy way for now.

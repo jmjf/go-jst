@@ -1,36 +1,29 @@
 package modinit
 
 import (
-	"fmt"
 	"log/slog"
 
 	"go-slo/internal/jobStatus"
 	"go-slo/internal/jobStatus/db/gormpg"
 )
 
-func Init(pgDSN string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.AddJobStatusUC, *jobStatus.GetByQueryUC, *jobStatus.AddJobStatusCtrl, *jobStatus.GetByQueryCtrl, error) {
-	fmt.Println(" -- NewRepoDb")
+func Init(pgDSN string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.UseCases, *jobStatus.Controllers, error) {
+	logger.Info("create repo")
 	dbRepo := gormpg.NewRepoDB(pgDSN)
 
-	fmt.Println(" -- Open database connection")
+	logger.Info("open database")
 	err := dbRepo.Open()
 
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	fmt.Println(" -- NewAddJobStatusUC")
-	addUC := jobStatus.NewAddJobStatusUC(dbRepo)
+	logger.Info("create usecases")
+	uc := jobStatus.NewUseCases(dbRepo)
 
-	fmt.Println(" -- NewAddJobStatusController")
-	addCtrl := jobStatus.NewAddJobStatusCtrl(addUC)
+	logger.Info("create controllers")
+	ctrl := jobStatus.NewControllers(uc, logger)
 
-	fmt.Println(" -- NewGetByQueryUC")
-	getUC := jobStatus.NewGetByQueryUC(dbRepo)
-
-	fmt.Println(" -- NewGetByQueryController")
-	queryCtrl := jobStatus.NewGetByQueryCtrl(getUC)
-
-	return dbRepo, addUC, getUC, addCtrl, queryCtrl, nil
+	return dbRepo, uc, ctrl, nil
 }
