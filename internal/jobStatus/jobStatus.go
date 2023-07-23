@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -11,6 +12,9 @@ import (
 	"go-slo/internal"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
+
+// TODO: remove after fixing controllers
+type RequestQuery = url.Values
 
 // interfaces used in jobStatus and subpackages
 type Repo interface {

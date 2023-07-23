@@ -1,4 +1,4 @@
-package jobStatus
+package http
 
 import (
 	"encoding/json"
