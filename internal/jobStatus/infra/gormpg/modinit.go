@@ -23,7 +23,7 @@ func Init(pgDSN string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.UseCase
 	uc := jobStatus.NewUseCases(dbRepo)
 
 	logger.Info("create controllers")
-	ctrl := jobStatus.NewControllers(uc, logger)
+	ctrl := jobStatus.NewControllers(uc)
 
 	return dbRepo, uc, ctrl, nil
 }

@@ -30,11 +30,11 @@ func Handler(rootLogger *slog.Logger, ctrl *jobStatus.Controllers) http.Handler 
 		// 	// handle get all
 
 		case req.Method == http.MethodGet && len(req.URL.Query()) > 0:
-			ctrl.GetByQuery(res, req)
+			ctrl.GetByQuery(res, req, logger)
 			return
 
 		case req.Method == http.MethodPost:
-			ctrl.Add(res, req)
+			ctrl.Add(res, req, logger)
 			return
 
 		default:

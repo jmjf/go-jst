@@ -18,15 +18,13 @@ type reqData[T any] struct {
 }
 
 type Controllers struct {
-	uc  *UseCases
-	log *slog.Logger
+	uc *UseCases
 }
 
 // NewControllers creates and returns a Controllers
-func NewControllers(uc *UseCases, logger *slog.Logger) *Controllers {
+func NewControllers(uc *UseCases) *Controllers {
 	return &Controllers{
-		uc:  uc,
-		log: logger,
+		uc: uc,
 	}
 }
 
@@ -35,7 +33,7 @@ func NewControllers(uc *UseCases, logger *slog.Logger) *Controllers {
 // an appropriate HTTP status code.
 //
 // Mutates receiver: no
-func (ctrl Controllers) Add(res http.ResponseWriter, req *http.Request) {
+func (ctrl Controllers) Add(res http.ResponseWriter, req *http.Request, logger *slog.Logger) {
 
 	// decode JSON into request data
 	decoder := json.NewDecoder(req.Body)
@@ -48,13 +46,13 @@ func (ctrl Controllers) Add(res http.ResponseWriter, req *http.Request) {
 	err := decoder.Decode(&dto)
 	if err != nil {
 		logErr := internal.NewLoggableError(err, internal.ErrcdJsonDecode, req.Body)
-		internal.LogError(ctrl.log, "JSONDecodeError", logErr.Error(), logErr)
+		internal.LogError(logger, "JSONDecodeError", logErr.Error(), logErr)
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// call use case with DTO
-	result, resStatus, err := callUseCase[JobStatus, dtoType.JobStatusDto](ctrl.log, ctrl.uc.Add, dto)
+	result, resStatus, err := callUseCase[JobStatus, dtoType.JobStatusDto](logger, ctrl.uc.Add, dto)
 	if err != nil {
 		res.WriteHeader(resStatus)
 		return
@@ -70,10 +68,10 @@ func (ctrl Controllers) Add(res http.ResponseWriter, req *http.Request) {
 // If the query string is invalid or the query fails, it logs errors and responds with an appropriate HTTP status code.
 //
 // Mutates receiver: no
-func (ctrl Controllers) GetByQuery(res http.ResponseWriter, req *http.Request) {
+func (ctrl Controllers) GetByQuery(res http.ResponseWriter, req *http.Request, logger *slog.Logger) {
 
 	// call use case with query
-	result, resStatus, err := callUseCase[[]JobStatus, RequestQuery](ctrl.log, ctrl.uc.GetByQuery, req.URL.Query())
+	result, resStatus, err := callUseCase[[]JobStatus, RequestQuery](logger, ctrl.uc.GetByQuery, req.URL.Query())
 	if err != nil {
 		res.WriteHeader(resStatus)
 		return
