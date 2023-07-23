@@ -5,13 +5,13 @@ import (
 	"log/slog"
 
 	"go-slo/internal/jobStatus"
-	dbpg "go-slo/internal/jobStatus/db_sqlpgx"
+	"go-slo/internal/jobStatus/db/sqlpgx"
 )
 
 func Init(pgUrl string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.AddJobStatusUC, *jobStatus.GetByQueryUC, *jobStatus.AddJobStatusCtrl, *jobStatus.GetByQueryCtrl, error) {
 
 	fmt.Println(" -- NewRepoDb")
-	dbRepo := dbpg.NewRepoDB(pgUrl)
+	dbRepo := sqlpgx.NewRepoDB(pgUrl)
 
 	fmt.Println(" -- Open database connection")
 	err := dbRepo.Open()

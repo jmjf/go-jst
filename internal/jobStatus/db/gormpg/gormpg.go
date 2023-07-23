@@ -1,10 +1,11 @@
-package repo
+package gormpg
 
 import (
 	"time"
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
+	"go-slo/internal/jobStatus/db"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"gorm.io/driver/postgres"
@@ -95,15 +96,12 @@ func (repo *repoDB) Add(jobStatus jobStatus.JobStatus) error {
 // GetByQuery retrieves JobStatus structs for a specific job id and business date.
 //
 // Mutates receiver: no
-func (repo *repoDB) GetByQuery(dto dtoType.JobStatusDto) ([]jobStatus.JobStatus, error) {
+func (repo *repoDB) GetByQuery(q map[string]string) ([]jobStatus.JobStatus, error) {
 	var dbStatuses []gormModel
-	where := map[string]any{
-		"jobId": dto.JobId,
-		"busDt": dto.BusDt.AsTime(),
-	}
+	where, values, err := db.QueryToWhere(q)
 
 	// Use named argument to avoid questions about tags
-	result := repo.DB.Where("JobId = @jobId and BusinessDate = @busDt", where).Find(&dbStatuses)
+	result := repo.DB.Where(where, values...).Find(&dbStatuses)
 
 	if result.Error != nil {
 		code := internal.PgErrToCommon(result.Error)

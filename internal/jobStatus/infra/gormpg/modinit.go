@@ -5,10 +5,10 @@ import (
 	"log/slog"
 
 	"go-slo/internal/jobStatus"
-	gormpg "go-slo/internal/jobStatus/db_gormpg"
+	"go-slo/internal/jobStatus/db/gormpg"
 )
 
-func Init(pgDSN string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.AddJobStatusUC, *jobStatus.AddJobStatusCtrl, error) {
+func Init(pgDSN string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.AddJobStatusUC, *jobStatus.GetByQueryUC, *jobStatus.AddJobStatusCtrl, *jobStatus.GetByQueryCtrl, error) {
 	fmt.Println(" -- NewRepoDb")
 	dbRepo := gormpg.NewRepoDB(pgDSN)
 
@@ -17,14 +17,20 @@ func Init(pgDSN string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.AddJobS
 
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	fmt.Println(" -- NewAddJobStatusUC")
-	uc := jobStatus.NewAddJobStatusUC(dbRepo)
+	addUC := jobStatus.NewAddJobStatusUC(dbRepo)
 
 	fmt.Println(" -- NewAddJobStatusController")
-	ctrl := jobStatus.NewAddJobStatusCtrl(uc)
+	addCtrl := jobStatus.NewAddJobStatusCtrl(addUC)
 
-	return dbRepo, uc, ctrl, nil
+	fmt.Println(" -- NewGetByQueryUC")
+	getUC := jobStatus.NewGetByQueryUC(dbRepo)
+
+	fmt.Println(" -- NewGetByQueryController")
+	queryCtrl := jobStatus.NewGetByQueryCtrl(getUC)
+
+	return dbRepo, addUC, getUC, addCtrl, queryCtrl, nil
 }

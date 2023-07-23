@@ -2,8 +2,8 @@ package jobStatus
 
 import (
 	"errors"
-	"go-slo/internal"
 
+	"go-slo/internal"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 

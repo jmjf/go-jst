@@ -8,6 +8,7 @@ import (
 
 	jshttp "go-slo/internal/jobStatus/http"
 	modinit "go-slo/internal/jobStatus/infra/gormpg"
+	"go-slo/internal/middleware"
 )
 
 const (
@@ -18,9 +19,9 @@ const (
 	dbName   = "go-slo"
 )
 
-func logHandler(rootLogger *slog.Logger) http.HandlerFunc {
+func logHandler(rootLogger *slog.Logger, tag string) http.HandlerFunc {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		logger := rootLogger.With("route", req.URL.Path, "method", req.Method)
+		logger := rootLogger.With("tag", tag, "route", req.URL.Path, "method", req.Method)
 		logger.Info("received", "urlRawPath", req.URL.RawPath, "urlString", req.URL.String())
 	})
 }
@@ -50,7 +51,7 @@ func main() {
 
 	pgDSN := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
 
-	dbRepo, _, addCtrl, err := modinit.Init(pgDSN, logger)
+	dbRepo, _, _, addCtrl, queryCtrl, err := modinit.Init(pgDSN, logger)
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
 		panic(err)
@@ -58,14 +59,16 @@ func main() {
 	defer dbRepo.Close()
 
 	fmt.Println(" -- build mux")
-	// apiMux := http.NewServeMux()
-	subMux := http.NewServeMux()
+	apiMux := http.NewServeMux()
+	mux := http.NewServeMux()
+	logRequestMw := middleware.BuildReqLoggerMw(logger)
 
-	subMux.Handle("/api/job-statuses", jshttp.Handler(logger, addCtrl))
-	subMux.Handle("/api/job-statuses/", jshttp.Handler(logger, addCtrl))
-	subMux.Handle("/", logHandler(logger))
+	apiMux.Handle("/job-statuses", jshttp.Handler(logger, addCtrl, queryCtrl))
+	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, addCtrl, queryCtrl))
+	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(logRequestMw(apiMux))))
+	mux.Handle("/", logHandler(logger, "/"))
 
 	fmt.Println(" -- start server")
-	http.ListenAndServe(":9201", subMux)
+	http.ListenAndServe(":9201", mux)
 
 }

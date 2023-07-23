@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"testing"
@@ -11,7 +12,7 @@ import (
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db_gormpg"
+	repo "go-slo/internal/jobStatus/db/gormpg"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -268,43 +269,43 @@ func Test_jobStatusUC_gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 func Test_jobStatusUC_gorm_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
 
 	tests := []struct {
-		name      string
-		testField string
-		testValue any
-		wantErr   string
+		name    string
+		testURL string
+		wantErr string
 	}{
 		{
-			name:      "when JobId is zero value it returns missing query term",
-			testField: "JobId",
-			testValue: "",
-			wantErr:   internal.ErrAppQueryTerm.Error(),
+			name:    "when query is empty it returns missing query term",
+			testURL: "/test",
+			wantErr: internal.ErrAppTermMissing.Error(),
 		},
 		{
-			name:      "when BusDt is zero value it returns missing query term",
-			testField: "BusDt",
-			testValue: internal.NewDateFromTime(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)), // zero time 0001-01-01T00:00:00.000Z
-			wantErr:   internal.ErrAppQueryTerm.Error(),
+			name:    "when a time present but applicationId and jobId are empty it returns missing query term",
+			testURL: "/test?businessDate=2023-01-01",
+			wantErr: internal.ErrAppTermMissing.Error(),
 		},
+		{
+			name:    "when an id present, but jobStatusTimestamp and businessDate are empty it returns missing query term",
+			testURL: "/test?jobId=abc123",
+			wantErr: internal.ErrAppTermMissing.Error(),
+		},
+		// we don't test success here because later tests will cover that by working
 	}
 
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			_, db, _, jsRepo, dto, err := gormBeforeEach(t)
+			_, db, _, jsRepo, _, err := gormBeforeEach(t)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer db.Close()
 
-			uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
-
-			// set the value of the field to test
-			tf := reflect.ValueOf(&dto).Elem().FieldByName(tt.testField)
-			tf.Set(reflect.ValueOf(tt.testValue))
+			uc := jobStatus.NewGetByQueryUC(jsRepo)
+			u, _ := url.Parse(tt.testURL)
 
 			// Act
-			got, err := uc.Execute(dto)
+			got, err := uc.Execute(u.Query())
 			if err == nil {
 				t.Errorf("FAIL | Expected error %q, got: %+v", tt.wantErr, got)
 				return
@@ -328,20 +329,20 @@ func Test_jobStatusUC_gorm_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
 func Test_jobStatusUC_gorm_GetQuery_RepoErrorReturnsError(t *testing.T) {
 	// Arrange
 	wantErr := internal.ErrRepoOther.Error()
-	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
+	_, db, mock, jsRepo, _, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+	uc := jobStatus.NewGetByQueryUC(jsRepo)
+	u, _ := url.Parse("/test?jobId=abc123&businessDate=2023-01-01&applicationId=")
 
 	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
-		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
 		WillReturnError(internal.ErrRepoOther)
 
 	// Act
-	got, err := uc.Execute(dto)
+	got, err := uc.Execute(u.Query())
 	if err == nil {
 		t.Errorf("FAIL | Expected error %s, got: %+v", wantErr, got)
 		return
@@ -362,21 +363,22 @@ func Test_jobStatusUC_gorm_GetQuery_RepoErrorReturnsError(t *testing.T) {
 
 func Test_jobStatusUC_gorm_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 	// Arrange
-	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
+	_, db, mock, jsRepo, _, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+	uc := jobStatus.NewGetByQueryUC(jsRepo)
+	// test repo handling of applicationId , jobStatusCode, and hostId
+	u, _ := url.Parse("/test?jobId=abc123&businessDate=2023-01-01&applicationId=987xyz&jobStatusCode=START&hostId=93")
 
 	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
-		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
 		WillReturnRows(sqlmock.NewRows([]string{"ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId"}))
 		// empty result
 
 	// Act
-	got, err := uc.Execute(dto)
+	got, err := uc.Execute(u.Query())
 	if err != nil {
 		t.Errorf("FAIL | Expected empty result, got: %+v", err)
 		return
@@ -389,13 +391,15 @@ func Test_jobStatusUC_gorm_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 
 func Test_jobStatusUC_gorm_GetQuery_DataFoundReturnsResult(t *testing.T) {
 	// Arrange
-	_, db, mock, jsRepo, dto, err := gormBeforeEach(t)
+	_, db, mock, jsRepo, _, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	uc := jobStatus.NewGetJobStatusByQueryUC(jsRepo)
+	uc := jobStatus.NewGetByQueryUC(jsRepo)
+	// test repo handling of jobStatusTimestamp and runId
+	u, _ := url.Parse("/test?jobId=abc123&businessDate=2023-01-01&jobStatusTimestamp=2023-01-02T05:06:07Z&runId=43")
 
 	dt, _ := internal.NewDate("2023-04-08")
 	wantData := []jobStatus.JobStatus{
@@ -425,11 +429,10 @@ func Test_jobStatusUC_gorm_GetQuery_DataFoundReturnsResult(t *testing.T) {
 			wantData[1].BusinessDate.AsTime(), wantData[1].RunId, wantData[1].HostId)
 
 	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
-		WithArgs(dto.JobId, internal.MatchTime{Value: time.Time(dto.BusDt)}).
 		WillReturnRows(rows)
 
 	// Act
-	got, err := uc.Execute(dto)
+	got, err := uc.Execute(u.Query())
 	if err != nil {
 		t.Errorf("FAIL | Expected empty result, got: %+v", err)
 		return

@@ -12,7 +12,7 @@ import (
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db_sqlpgx"
+	repo "go-slo/internal/jobStatus/db/sqlpgx"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -279,8 +279,6 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_InvalidQueryTermReturnsError(t *testing.T
 			}
 
 			uc := jobStatus.NewGetByQueryUC(jsRepo)
-
-			// set the value of the field to test
 			u, _ := url.Parse(tt.testURL)
 
 			// Act
@@ -318,6 +316,7 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_RepoErrorReturnsError(t *testing.T) {
 	u, _ := url.Parse("/test?jobId=abc123&businessDate=2023-01-01&applicationId=")
 
 	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
+		// argument order is unpredictable, so can't use WithArgs()
 		WillReturnError(internal.ErrRepoOther)
 
 	// Act
