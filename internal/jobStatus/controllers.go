@@ -6,19 +6,23 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"runtime"
 
 	"go-slo/internal"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
 type RequestQuery = url.Values
+type reqData[T any] struct {
+	val T
+}
 
 type Controllers struct {
 	uc  *UseCases
 	log *slog.Logger
 }
 
-// NewControllers creates and returns an Controllers
+// NewControllers creates and returns a Controllers
 func NewControllers(uc *UseCases, logger *slog.Logger) *Controllers {
 	return &Controllers{
 		uc:  uc,
@@ -31,10 +35,10 @@ func NewControllers(uc *UseCases, logger *slog.Logger) *Controllers {
 // an appropriate HTTP status code.
 //
 // Mutates receiver: no
-func (ctrl Controllers) Add(response http.ResponseWriter, request *http.Request) {
+func (ctrl Controllers) Add(res http.ResponseWriter, req *http.Request) {
 
 	// decode JSON into request data
-	decoder := json.NewDecoder(request.Body)
+	decoder := json.NewDecoder(req.Body)
 
 	// TODO: add in-message API version checking; requires a raw JSON structure separate from DTO
 
@@ -43,40 +47,22 @@ func (ctrl Controllers) Add(response http.ResponseWriter, request *http.Request)
 
 	err := decoder.Decode(&dto)
 	if err != nil {
-		//
-		logErr := internal.NewLoggableError(err, internal.ErrcdJsonDecode, request.Body)
-		internal.LogError(ctrl.log, "JSON Decode Error", logErr.Error(), logErr)
-		response.WriteHeader(http.StatusBadRequest)
+		logErr := internal.NewLoggableError(err, internal.ErrcdJsonDecode, req.Body)
+		internal.LogError(ctrl.log, "JSONDecodeError", logErr.Error(), logErr)
+		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	ctrl.log.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "dto", dto)
 
 	// call use case with DTO
-	result, err := ctrl.uc.Add(dto)
+	result, resStatus, err := callUseCase[JobStatus, dtoType.JobStatusDto](ctrl.log, ctrl.uc.Add, dto)
 	if err != nil {
-		logErr := internal.WrapError(err)
-		// Need to identify error type and get it for logging
-		var le *internal.LoggableError
-		var responseStatus int
-
-		if errors.As(err, &le) {
-			responseStatus = http.StatusBadRequest
-			internal.LogError(ctrl.log, le.Err.Error(), logErr.Error(), le)
-		} else {
-			responseStatus = http.StatusInternalServerError
-			ctrl.log.Error("Unknown error type", "err", err)
-		}
-
-		response.WriteHeader(responseStatus)
+		res.WriteHeader(resStatus)
 		return
 	}
 
-	ctrl.log.Debug("Add Result", "functionName", "jobStatusCtrl.AddJobStatus", "jobStatus", result)
-
-	response.WriteHeader(http.StatusOK)
+	res.WriteHeader(http.StatusOK)
 	// encode response (generic to all HTTP controllers)
-	encoder := json.NewEncoder(response)
+	encoder := json.NewEncoder(res)
 	encoder.Encode(result)
 }
 
@@ -85,33 +71,55 @@ func (ctrl Controllers) Add(response http.ResponseWriter, request *http.Request)
 //
 // Mutates receiver: no
 func (ctrl Controllers) GetByQuery(res http.ResponseWriter, req *http.Request) {
-	ctrl.log.Debug("Call Execute", "functionName", "jobStatusCtrl.AddJobStatus", "query", req.URL.Query())
 
-	// call use case with DTO
-	result, err := ctrl.uc.GetByQuery(req.URL.Query())
+	// call use case with query
+	result, resStatus, err := callUseCase[[]JobStatus, RequestQuery](ctrl.log, ctrl.uc.GetByQuery, req.URL.Query())
 	if err != nil {
-		logErr := internal.WrapError(err)
-		// Need to identify error type and get it for logging
-		var le *internal.LoggableError
-		var resStatus int
-
-		if errors.As(err, &le) {
-			resStatus = http.StatusBadRequest
-			internal.LogError(ctrl.log, le.Err.Error(), logErr.Error(), le)
-		} else {
-			resStatus = http.StatusInternalServerError
-			ctrl.log.Error("Unknown error type", "err", err)
-		}
-
 		res.WriteHeader(resStatus)
 		return
 	}
-
-	ctrl.log.Debug("Add Result", "functionName", "jobStatusCtrl.AddJobStatus", "jobStatus", result)
 
 	res.WriteHeader(http.StatusOK)
 	// encode response (generic to all HTTP controllers)
 	encoder := json.NewEncoder(res)
 	encoder.Encode(result)
+}
 
+// callUseCase abstracts calling a use case function and handling the error.
+// UCRT is the use case function's primary return type (secondary type is error).
+// (Do not use a pointer value for UCRT)
+// DT is the type of the data passed to the use case function.
+//
+// On success, callUseCase returns a *UCRT. The caller must decide how to
+// encode the results (data, statuses, etc.).
+func callUseCase[UCRT any, DT any](log *slog.Logger, ucFn func(DT) (UCRT, error), fnData DT) (*UCRT, int, error) {
+	resStatus := http.StatusOK
+	callerNm := "runtime.Caller(1) error"
+	pc, _, _, ok := runtime.Caller(1)
+	if ok {
+		callerNm = runtime.FuncForPC(pc).Name()
+	}
+	log.Info("callUseCase", "callerNm", callerNm, "fnData", fnData)
+
+	result, err := ucFn(fnData)
+	if err != nil {
+		logErr := internal.WrapError(err)
+		// Need to identify error type and get it for logging
+		var le *internal.LoggableError
+
+		// TODO: Get correct error status for loggable error.
+		// The error may be an internal server error (e.g., database error).
+		// I need a way to choose a response code based on the specific error.
+		if errors.As(err, &le) {
+			resStatus = http.StatusBadRequest
+			internal.LogError(log, le.Err.Error(), logErr.Error(), le)
+		} else {
+			resStatus = http.StatusInternalServerError
+			log.Error("Unknown error type", "err", err)
+		}
+	}
+
+	log.Info("callUseCase result", "callerNm", callerNm, "result", result, "resStatus", resStatus, "err", err)
+
+	return &result, resStatus, err
 }

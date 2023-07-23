@@ -13,7 +13,7 @@ import (
 // interfaces used in jobStatus and subpackages
 type Repo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
-	Add(jobStatus JobStatus) error
+	Add(JobStatus) error
 	GetByQuery(map[string]string) ([]JobStatus, error)
 	Close() error
 }
