@@ -12,23 +12,40 @@ import (
 
 	"go-slo/internal"
 	"go-slo/internal/jobStatus"
-	repo "go-slo/internal/jobStatus/db/sqlpgx"
+	repo "go-slo/internal/jobStatus/db/gormpg"
 	dtoType "go-slo/public/jobStatus/http/20230701"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jackc/pgx/v5/pgconn"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 )
 
-func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.Repo, jobStatus.UseCase, dtoType.JobStatusDto, error) {
+func gormBeforeEach(t *testing.T) (*gorm.DB, *sql.DB, sqlmock.Sqlmock, jobStatus.Repo, jobStatus.UseCases, dtoType.JobStatusDto, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jsRepo := repo.NewRepoDB("")
-	jsRepo.DB = db
+	gormDb, err := gorm.Open(postgres.New(
+		postgres.Config{
+			Conn:       db,
+			DriverName: "postgres",
+		},
+	), &gorm.Config{
+		TranslateError: false, // get raw Postgres errors because they're more expressive
+		Logger:         gormLogger.Default.LogMode(gormLogger.Silent),
+		NowFunc:        func() time.Time { return time.Now().UTC() }, // ensure times are UTC
+	})
+	if err != nil {
+		panic(err)
+	}
 
-	uc := jobStatus.NewUseCase(jsRepo)
+	jsRepo := repo.NewRepoDB("")
+	jsRepo.DB = gormDb
+
+	uc := jobStatus.NewUseCases(jsRepo)
 
 	busDt, err := internal.NewDate("2023-06-20")
 
@@ -42,10 +59,10 @@ func dbSqlPgBeforeEach(t *testing.T) (*sql.DB, sqlmock.Sqlmock, jobStatus.Repo, 
 		HstId: "Host4",
 	}
 
-	return db, mock, jsRepo, *uc, dto, err
+	return gormDb, db, mock, jsRepo, *uc, dto, err
 }
 
-func Test_jobStatusUC_dbsqlpg_Add_InvalidDtoDataReturnsError(t *testing.T) {
+func Test_jobStatusUC_gorm_Add_InvalidDtoDataReturnsError(t *testing.T) {
 	// value for BusDt test needs to be Date type
 	futureDate, _ := internal.NewDate(time.Now().Add(48 * time.Hour).Format(time.DateOnly))
 
@@ -121,10 +138,11 @@ func Test_jobStatusUC_dbsqlpg_Add_InvalidDtoDataReturnsError(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			_, _, _, uc, dto, err := dbSqlPgBeforeEach(t) // don't need db or mock
+			_, db, _, _, uc, dto, err := gormBeforeEach(t) // don't need db or mock
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer db.Close()
 
 			// set the value of the field to test
 			tf := reflect.ValueOf(&dto).Elem().FieldByName(tt.testField)
@@ -138,23 +156,23 @@ func Test_jobStatusUC_dbsqlpg_Add_InvalidDtoDataReturnsError(t *testing.T) {
 				return
 			}
 
-			var le *internal.LoggableError
-			if errors.As(err, &le) {
+			var de *internal.LoggableError
+			if errors.As(err, &de) {
 				// get the first error from Data and call Error() on it to get a string
-				msg := le.Data.([]error)[0].Error()
+				msg := de.Data.([]error)[0].Error()
 				match, _ := regexp.MatchString(tt.wantErr, msg)
 				if !match {
 					t.Errorf("FAIL | Expected error %q, got: %s", tt.wantErr, err)
 				}
-				// err is a LoggableError so, we're good
+				// err is a DomainError so, we're good
 				return
 			}
-			t.Errorf("FAIL | Expected LoggableError, got: %v", err)
+			t.Errorf("FAIL | Expected DomainError, got: %v", err)
 		})
 	}
 }
 
-func Test_jobStatusUC_dbsqlpg_Add_RepoErrors(t *testing.T) {
+func Test_jobStatusUC_gorm_Add_RepoErrors(t *testing.T) {
 	// when repo returns <error> it recognizes the error
 
 	// Arrange
@@ -184,17 +202,19 @@ func Test_jobStatusUC_dbsqlpg_Add_RepoErrors(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			db, mock, _, uc, dto, err := dbSqlPgBeforeEach(t)
+			_, db, mock, _, uc, dto, err := gormBeforeEach(t)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer db.Close()
 
+			mock.ExpectBegin()
 			mock.ExpectExec(`INSERT INTO "JobStatus"`).
 				WithArgs(dto.AppId, dto.JobId, dto.JobSt, internal.MatchTime{Value: dto.JobTs}, internal.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 				WillReturnError(tt.testErr)
+			mock.ExpectRollback()
 
-				// Act
+			// Act
 			js, err := uc.Add(dto)
 
 			// Assert
@@ -202,11 +222,11 @@ func Test_jobStatusUC_dbsqlpg_Add_RepoErrors(t *testing.T) {
 				t.Errorf("FAIL | Expected error, got err: %s  js: %+v", err, js)
 				return
 			}
-			var le *internal.LoggableError
-			if errors.As(err, &le) {
-				// fmt.Printf("le %+v", *le)
-				if le.Code != tt.expectErrCode {
-					t.Errorf("FAIL | Expected %s, got %+v", tt.expectErrCode, le)
+			var re *internal.LoggableError
+			if errors.As(err, &re) {
+				// fmt.Printf("re %+v", *re)
+				if re.Code != tt.expectErrCode {
+					t.Errorf("FAIL | Expected %s, got %+v", tt.expectErrCode, re)
 				}
 				// whether Code is wrong or not, we go the right type of error so we're done
 				return
@@ -216,19 +236,21 @@ func Test_jobStatusUC_dbsqlpg_Add_RepoErrors(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_dbsqlpg_Add_SuccessReturnsJobStatus(t *testing.T) {
+func Test_jobStatusUC_gorm_Add_SuccessReturnsJobStatus(t *testing.T) {
 	// when data is good it returns a JobStatus
 
 	// Arrange
-	db, mock, _, uc, dto, err := dbSqlPgBeforeEach(t)
+	_, db, mock, _, uc, dto, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
+	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "JobStatus"`).
 		WithArgs(dto.AppId, dto.JobId, dto.JobSt, internal.MatchTime{Value: dto.JobTs}, internal.MatchTime{Value: time.Time(dto.BusDt)}, dto.RunId, dto.HstId).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	// Act
 	_, err = uc.Add(dto)
@@ -240,7 +262,7 @@ func Test_jobStatusUC_dbsqlpg_Add_SuccessReturnsJobStatus(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_dbsqlpg_GetQuery_InvalidQueryTermReturnsError(t *testing.T) {
+func Test_jobStatusUC_gorm_GetQuery_ZeroQueryTermReturnsError(t *testing.T) {
 
 	tests := []struct {
 		name    string
@@ -269,10 +291,11 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_InvalidQueryTermReturnsError(t *testing.T
 
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			_, _, _, uc, _, err := dbSqlPgBeforeEach(t) // don't need db or mock
+			_, db, _, _, uc, _, err := gormBeforeEach(t)
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer db.Close()
 
 			u, _ := url.Parse(tt.testURL)
 
@@ -298,10 +321,10 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_InvalidQueryTermReturnsError(t *testing.T
 	}
 }
 
-func Test_jobStatusUC_dbsqlpg_GetQuery_RepoErrorReturnsError(t *testing.T) {
+func Test_jobStatusUC_gorm_GetQuery_RepoErrorReturnsError(t *testing.T) {
 	// Arrange
 	wantErr := internal.ErrRepoOther.Error()
-	db, mock, _, uc, _, err := dbSqlPgBeforeEach(t)
+	_, db, mock, _, uc, _, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,8 +332,7 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_RepoErrorReturnsError(t *testing.T) {
 
 	u, _ := url.Parse("/test?jobId=abc123&businessDate=2023-01-01&applicationId=")
 
-	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
-		// argument order is unpredictable, so can't use WithArgs()
+	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
 		WillReturnError(internal.ErrRepoOther)
 
 	// Act
@@ -333,9 +355,9 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_RepoErrorReturnsError(t *testing.T) {
 	t.Errorf("FAIL | Expected LoggableError, got: %v", err)
 }
 
-func Test_jobStatusUC_dbsqlpg_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
+func Test_jobStatusUC_gorm_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 	// Arrange
-	db, mock, _, uc, _, err := dbSqlPgBeforeEach(t)
+	_, db, mock, _, uc, _, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +366,7 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 	// test repo handling of applicationId , jobStatusCode, and hostId
 	u, _ := url.Parse("/test?jobId=abc123&businessDate=2023-01-01&applicationId=987xyz&jobStatusCode=START&hostId=93")
 
-	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
+	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
 		WillReturnRows(sqlmock.NewRows([]string{"ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId"}))
 		// empty result
 
@@ -360,9 +382,9 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_NoDataReturnsEmptyResult(t *testing.T) {
 	}
 }
 
-func Test_jobStatusUC_dbsqlpg_GetQuery_DataFoundReturnsResult(t *testing.T) {
+func Test_jobStatusUC_gorm_GetQuery_DataFoundReturnsResult(t *testing.T) {
 	// Arrange
-	db, mock, _, uc, _, err := dbSqlPgBeforeEach(t)
+	_, db, mock, _, uc, _, err := gormBeforeEach(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,7 +420,7 @@ func Test_jobStatusUC_dbsqlpg_GetQuery_DataFoundReturnsResult(t *testing.T) {
 		AddRow(wantData[1].ApplicationId, wantData[1].JobId, wantData[1].JobStatusCode, wantData[1].JobStatusTimestamp,
 			wantData[1].BusinessDate.AsTime(), wantData[1].RunId, wantData[1].HostId)
 
-	mock.ExpectQuery(`SELECT "ApplicationId", "JobId", "JobStatusCode", "JobStatusTimestamp", "BusinessDate", "RunId", "HostId" FROM "JobStatus"`).
+	mock.ExpectQuery(`SELECT \* FROM "JobStatus"`).
 		WillReturnRows(rows)
 
 	// Act

@@ -10,13 +10,13 @@ import (
 // UseCase is the set of use cases available for this subdomain and the major
 // adapters (repos, external service, etc.) tand other reference objects they
 // need to perform business processes against data.
-type UseCase struct {
+type UseCases struct {
 	repo Repo
 }
 
 // NewJobStatusUC creates and returns an UseCase“.
-func NewUseCase(jsr Repo) *UseCase {
-	return &UseCase{
+func NewUseCases(jsr Repo) *UseCases {
+	return &UseCases{
 		repo: jsr,
 	}
 }
@@ -26,7 +26,7 @@ func NewUseCase(jsr Repo) *UseCase {
 // Returns an error (LoggableError) and empty JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc UseCase) Add(dto dtoType.JobStatusDto) (JobStatus, error) {
+func (uc UseCases) Add(dto dtoType.JobStatusDto) (JobStatus, error) {
 	jobStatus, err := NewJobStatus(dto)
 	if err != nil {
 		return JobStatus{}, internal.WrapError(err)
@@ -45,7 +45,7 @@ func (uc UseCase) Add(dto dtoType.JobStatusDto) (JobStatus, error) {
 // Returns an error (LoggableError) and empty slice of JobStatus on failure.
 //
 // Mutates receiver: no
-func (uc UseCase) GetByQuery(rawQuery RequestQuery) ([]JobStatus, error) {
+func (uc UseCases) GetByQuery(rawQuery RequestQuery) ([]JobStatus, error) {
 	if len(rawQuery) == 0 ||
 		(len(rawQuery["jobId"]) == 0 && len(rawQuery["applicationId"]) == 0) ||
 		(len(rawQuery["jobStatusTimestamp"]) == 0 && len(rawQuery["businessDate"]) == 0) {
