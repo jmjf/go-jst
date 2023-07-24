@@ -2,6 +2,7 @@ package jobStatus
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 // interfaces used in jobStatus and subpackages
+type RequestQuery = url.Values
 type Repo interface {
 	// if running testRepo, change add() to Add() here and in the repos.
 	Add(JobStatus) error

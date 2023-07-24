@@ -1,123 +1,50 @@
 package jobStatus
 
 import (
-	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
-	"net/url"
-	"runtime"
 
 	"go-slo/internal"
-	dtoType "go-slo/public/jobStatus/http/20230701"
 )
 
-type RequestQuery = url.Values
-type reqData[T any] struct {
-	val T
-}
-
-type Controllers struct {
-	uc *UseCases
-}
-
-// NewControllers creates and returns a Controllers
-func NewControllers(uc *UseCases) *Controllers {
-	return &Controllers{
-		uc: uc,
-	}
-}
-
-// Add attempts to add a new job status record to the database.
-// If the request is invalid or adding fails, it logs errors and responds with
-// an appropriate HTTP status code.
-//
-// Mutates receiver: no
-func (ctrl Controllers) Add(res http.ResponseWriter, req *http.Request, logger *slog.Logger) {
-
-	// decode JSON into request data
-	decoder := json.NewDecoder(req.Body)
-
-	// TODO: add in-message API version checking; requires a raw JSON structure separate from DTO
-
-	// for now, we can convert the input to a DTO directly
-	var dto dtoType.JobStatusDto
-
-	err := decoder.Decode(&dto)
-	if err != nil {
-		logErr := internal.NewLoggableError(err, internal.ErrcdJsonDecode, req.Body)
-		internal.LogError(logger, "JSONDecodeError", logErr.Error(), logErr)
-		res.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// call use case with DTO
-	result, resStatus, err := callUseCase[JobStatus, dtoType.JobStatusDto](logger, ctrl.uc.Add, dto)
-	if err != nil {
-		res.WriteHeader(resStatus)
-		return
-	}
-
-	res.WriteHeader(http.StatusOK)
-	// encode response (generic to all HTTP controllers)
-	encoder := json.NewEncoder(res)
-	encoder.Encode(result)
-}
-
-// GetByQuery attempts to find job statuses in the database that match a query string.
-// If the query string is invalid or the query fails, it logs errors and responds with an appropriate HTTP status code.
-//
-// Mutates receiver: no
-func (ctrl Controllers) GetByQuery(res http.ResponseWriter, req *http.Request, logger *slog.Logger) {
-
-	// call use case with query
-	result, resStatus, err := callUseCase[[]JobStatus, RequestQuery](logger, ctrl.uc.GetByQuery, req.URL.Query())
-	if err != nil {
-		res.WriteHeader(resStatus)
-		return
-	}
-
-	res.WriteHeader(http.StatusOK)
-	// encode response (generic to all HTTP controllers)
-	encoder := json.NewEncoder(res)
-	encoder.Encode(result)
-}
-
-// callUseCase abstracts calling a use case function and handling the error.
+// CallUseCase calls a use case function with data and interprets the results.
 // UCRT is the use case function's primary return type (secondary type is error).
-// (Do not use a pointer value for UCRT)
-// DT is the type of the data passed to the use case function.
+// Do not use a pointer value for UCRT.
+// DT is the type of data passed to the use case function.
 //
-// On success, callUseCase returns a *UCRT. The caller must decide how to
+// On success, CallUseCase returns a *UCRT. The caller must decide how to
 // encode the results (data, statuses, etc.).
-func callUseCase[UCRT any, DT any](log *slog.Logger, ucFn func(DT) (UCRT, error), fnData DT) (*UCRT, int, error) {
+//
+// This function is a controller (type of adapter) in the sense that it works for
+// HTTP, gRPC or any other protocol. It uses HTTP status codes to communicate
+// whether the result is ok, due to a problem with the request or due to an
+// application or infrastructure error. The caller can decide how to translate the
+// statuses for the protocol it supports.
+
+// The caller is also responsible for translating inbound data to an expected format.
+// For example, the caller must translate a JSON body, protobuf, etc., into a form the
+// use case can use. It is also responsible for translating the results into a form
+// the protocol can transport. So, CallUseCase is the business half of the controller,
+// closer to the use cases,  and the caller is the infrastructure half, closer to the
+// specific data transfer protocol.
+func CallUseCase[UCRT any, DT any](ucFn func(DT) (UCRT, error), fnData DT) (*UCRT, int, error) {
 	resStatus := http.StatusOK
-	callerNm := "runtime.Caller(1) error"
-	pc, _, _, ok := runtime.Caller(1)
-	if ok {
-		callerNm = runtime.FuncForPC(pc).Name()
-	}
-	log.Info("callUseCase", "callerNm", callerNm, "fnData", fnData)
 
 	result, err := ucFn(fnData)
 	if err != nil {
-		logErr := internal.WrapError(err)
-		// Need to identify error type and get it for logging
-		var le *internal.LoggableError
+		resStatus = http.StatusInternalServerError // default error assumption
 
-		// TODO: Get correct error status for loggable error.
-		// The error may be an internal server error (e.g., database error).
-		// I need a way to choose a response code based on the specific error.
+		var le *internal.LoggableError
 		if errors.As(err, &le) {
-			resStatus = http.StatusBadRequest
-			internal.LogError(log, le.Err.Error(), logErr.Error(), le)
-		} else {
-			resStatus = http.StatusInternalServerError
-			log.Error("Unknown error type", "err", err)
+			// if the error is caused by the request, set StatusBadRequest
+			for _, cd := range internal.BadRequestErrcds {
+				if le.Code == cd {
+					resStatus = http.StatusBadRequest
+					break
+				}
+			}
 		}
 	}
-
-	log.Info("callUseCase result", "callerNm", callerNm, "result", result, "resStatus", resStatus, "err", err)
 
 	return &result, resStatus, err
 }

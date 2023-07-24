@@ -51,7 +51,7 @@ func main() {
 
 	logger.Info("initialize application")
 	pgDSN := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Etc/Utc", host, userName, password, dbName, port)
-	dbRepo, _, ctrl, err := modinit.Init(pgDSN, logger)
+	dbRepo, uc, err := modinit.Init(pgDSN, logger)
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
 		panic(err)
@@ -62,9 +62,10 @@ func main() {
 	apiMux := http.NewServeMux()
 	mux := http.NewServeMux()
 	logRequestMw := middleware.BuildReqLoggerMw(logger)
+	jobStatusHttpHandler := jshttp.Handler(logger, uc)
 
-	apiMux.Handle("/job-statuses", jshttp.Handler(logger, ctrl))
-	apiMux.Handle("/job-statuses/", jshttp.Handler(logger, ctrl))
+	apiMux.Handle("/job-statuses", jobStatusHttpHandler)
+	apiMux.Handle("/job-statuses/", jobStatusHttpHandler)
 	mux.Handle("/api/", http.StripPrefix("/api", middleware.AddRequestId(logRequestMw(apiMux))))
 	mux.Handle("/", logHandler(logger, "/"))
 

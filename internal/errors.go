@@ -95,9 +95,23 @@ var (
 
 // Primitive errors and error codes for controller errors
 var (
-	ErrJsonDecode   = errors.New("json decode error")
-	ErrcdJsonDecode = "JsonDecodeError"
+	ErrJsonDecode       = errors.New("json decode error")
+	ErrcdJsonDecode     = "JsonDecodeError"
+	ErrUnknown          = errors.New("unknown error")
+	ErrcdUnknown        = "UnknownError"
+	ErrNotImplemented   = errors.New("not implemented")
+	ErrcdNotImplemented = "NotImplemented"
 )
+
+// BadRequestErrCds identifiers errors that are caused by the request (vs. the application)
+var BadRequestErrcds = []string{
+	ErrcdDomainProps,
+	ErrcdAppTermInvalid,
+	ErrcdAppTermMissing,
+	ErrcdRepoDupeRow,
+	ErrcdRepoInvalidQuery,
+	ErrcdJsonDecode,
+}
 
 // WrapError returns an error that wraps the passed error with information
 // about the WrapError caller. When bubbling up errors, this simplifies

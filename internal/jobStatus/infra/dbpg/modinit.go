@@ -7,7 +7,7 @@ import (
 	"go-slo/internal/jobStatus/db/sqlpgx"
 )
 
-func Init(pgUrl string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.UseCases, *jobStatus.Controllers, error) {
+func Init(pgUrl string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.UseCases, error) {
 	logger.Info("create repo")
 	dbRepo := sqlpgx.NewRepoDB(pgUrl)
 
@@ -15,14 +15,11 @@ func Init(pgUrl string, logger *slog.Logger) (jobStatus.Repo, *jobStatus.UseCase
 	err := dbRepo.Open()
 	if err != nil {
 		logger.Error("database connection failed", "err", err)
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	logger.Info("create usecases")
 	uc := jobStatus.NewUseCases(dbRepo)
 
-	logger.Info("create controllers")
-	ctrl := jobStatus.NewControllers(uc)
-
-	return dbRepo, uc, ctrl, nil
+	return dbRepo, uc, nil
 }
