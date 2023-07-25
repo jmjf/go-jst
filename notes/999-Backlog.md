@@ -163,3 +163,7 @@ I want to understand how OpenTelemetry distributed tracing works and experiment 
 At the same time, change the logging name for the id to `traceId`.
 
 [Reference](https://uptrace.dev/opentelemetry/distributed-tracing.html)
+
+### Decide if badRequestErrors should be higher level
+
+The array `badRequestErrors` in `internal/jobStatus/http/httpHandler.go` may apply to other modules. If so, it needs to be moved to `internal/errors.go` with a name that indicates it's for HTTP.

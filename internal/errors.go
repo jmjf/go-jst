@@ -101,17 +101,9 @@ var (
 	ErrcdUnknown        = "UnknownError"
 	ErrNotImplemented   = errors.New("not implemented")
 	ErrcdNotImplemented = "NotImplemented"
+	ErrNilError         = errors.New("called with nil error")
+	ErrcdNilError       = "NilError"
 )
-
-// BadRequestErrCds identifiers errors that are caused by the request (vs. the application)
-var BadRequestErrcds = []string{
-	ErrcdDomainProps,
-	ErrcdAppTermInvalid,
-	ErrcdAppTermMissing,
-	ErrcdRepoDupeRow,
-	ErrcdRepoInvalidQuery,
-	ErrcdJsonDecode,
-}
 
 // WrapError returns an error that wraps the passed error with information
 // about the WrapError caller. When bubbling up errors, this simplifies
